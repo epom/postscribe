@@ -10,6 +10,22 @@ loading. postscribe lets you inject such a snippet at any time, after the page h
 without changing the snippet. It overrides `document.write`, runs the snippet's scripts in order, and writes their
 output where it belongs.
 
+## How it works, and thanks
+
+Writing third-party HTML after the page has loaded looks like it needs an HTML parser as good as the browser's: where
+does `<div>A<script>document.write("B</div>C")</script>D` put C and D? postscribe's answer, from Derek Brans, is
+that it doesn't need one. Every chunk is written into a detached copy of everything written so far, stripped of
+attributes (the "proxy history"); the browser builds the structure there by its own rules, and postscribe moves each
+new node to the matching place in the real page. Scripts run one at a time in between, with `document.write`
+pointing back into the stream, so nested and remote writes land where the browser would have put them.
+
+That idea is why a library last released in 2016 still writes today's ad creatives correctly, and why every fix in
+3.0 took a few dozen lines rather than a rewrite. Thank you to Derek Brans, Nick Sullivan, Joshua Newman, Seth Yates,
+Ambroos Vaes and everyone at Krux who built postscribe and prescribe, wrote the test suite that still guards them,
+and ran them for years on The New York Times, The Wall Street Journal, NBCUniversal and hundreds of other sites
+([AUTHORS](AUTHORS), [CONTRIBUTORS](CONTRIBUTORS)). The 3.x fork is maintained at [Epom](https://epom.com) by
+[Anton Ruin](https://github.com/ruin).
+
 ## This fork
 
 postscribe was written at [Krux](https://github.com/krux/postscribe). Its last release was 2.0.8 in November 2016,
@@ -173,22 +189,6 @@ npm run verify   # all of the above, and fails if the committed dist/ is not the
 
 `dist/` is committed so the library can be used straight from the repository. Every fix comes with a spec under
 [`test/epom/`](test/epom), and CI runs `npm run verify` on every push. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## How it works, and thanks
-
-Writing third-party HTML after the page has loaded looks like it needs an HTML parser as good as the browser's: where
-does `<div>A<script>document.write("B</div>C")</script>D` put C and D? postscribe's answer, from Derek Brans, is
-that it doesn't need one. Every chunk is written into a detached copy of everything written so far, stripped of
-attributes (the "proxy history"); the browser builds the structure there by its own rules, and postscribe moves each
-new node to the matching place in the real page. Scripts run one at a time in between, with `document.write`
-pointing back into the stream, so nested and remote writes land where the browser would have put them.
-
-That idea is why a library last released in 2016 still writes today's ad creatives correctly, and why every fix in
-3.0 took a few dozen lines rather than a rewrite. Thank you to Derek Brans, Nick Sullivan, Joshua Newman, Seth Yates,
-Ambroos Vaes and everyone at Krux who built postscribe and prescribe, wrote the test suite that still guards them,
-and ran them for years on The New York Times, The Wall Street Journal, NBCUniversal and hundreds of other sites
-([AUTHORS](AUTHORS), [CONTRIBUTORS](CONTRIBUTORS)). The 3.x fork is maintained at [Epom](https://epom.com) by
-[Anton Ruin](https://github.com/ruin).
 
 ## License
 
