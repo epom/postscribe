@@ -66,6 +66,13 @@ function isJavaScript(tok) {
   return !type || !type.trim() || JS_TYPE.test(type.split(';')[0].trim());
 }
 
+// Epom fork: a copy of a tag token with one more attribute.
+function withAttr(tok, name, value) {
+  const copy = Object.create(tok);
+  copy.attrs = Object.assign({}, tok.attrs, {[name]: String(value)});
+  return copy;
+}
+
 // Epom fork: <template> start/end tag tokens.
 function isTemplateStart(tok) {
   return tok.type === 'startTag' && !tok.unary && (/^template$/i).test(tok.tagName);
@@ -336,8 +343,9 @@ export default class WriteStream {
         if (!(/^noscript$/i).test(tok.tagName)) {
           const id = nextId++;
 
-          // Actual: inject id attribute: replace '>' at end of start tag with id attribute + '>'
-          actual.push(tokenRaw.replace(/(\/?>)/, ` ${BASEATTR}id=${id} $1`));
+          // Actual: inject id attribute. Epom fork: as one more attribute of the token, not before the first '>',
+          // which can sit inside a quoted value.
+          actual.push(withAttr(tok, `${BASEATTR}id`, id).toString());
 
           // Don't proxy scripts: they have no bearing on DOM structure.
           if (tok.attrs.id !== PROXY_SCRIPT && tok.attrs.id !== PROXY_STYLE) {
