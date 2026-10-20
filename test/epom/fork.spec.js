@@ -131,6 +131,35 @@ describe('epom fork', () => {
     });
   });
 
+  describe('cancel() (#8, krux/postscribe#478)', () => {
+    it('stops a running stream, fires none of its callbacks, and lets the next stream run', async() => {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      const done = sinon.spy();
+      const afterAsync = sinon.spy();
+      const stream = postscribe(div, '<script src="remote/set-global1.js"></script><p>after</p>', {done, afterAsync});
+      expect(() => stream.cancel()).to.not.throwException();
+
+      const next = await write('<p>next</p>');
+      expect(next.textContent).to.be('next');
+      expect(div.querySelector('p')).to.be(null);
+      expect(done.called).to.be(false);
+      expect(afterAsync.called).to.be(false);
+      expect(document.write.toString()).to.contain('[native code]');
+    });
+
+    it('drops a stream that has not started yet', async() => {
+      const first = write('<script src="remote/set-global1.js"></script>');
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      const done = sinon.spy();
+      postscribe(div, '<p>queued</p>', {done}).cancel();
+      await first;
+      await write('');
+      expect(div.innerHTML).to.be('');
+    });
+  });
+
   describe('nonce option (#6, krux/postscribe#512)', () => {
     it('puts the nonce on the scripts and styles it creates', async() => {
       await write('<style id="n6s">#n6 { color: red; }</style>' +

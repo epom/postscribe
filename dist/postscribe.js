@@ -976,6 +976,11 @@
      * @param {...String} str The strings to write
      */
     write(...str) {
+      // Epom fork: a cancelled stream writes nothing more, whatever its scripts still try to write.
+      if (this.aborted) {
+        return;
+      }
+
       this.writeQueue.push(...str);
 
       // Process writes
@@ -991,6 +996,25 @@
         } else {
           this._writeImpl(arg);
         }
+      }
+    }
+
+    /**
+     * Epom fork: stop the stream (postscribe's cancel()). Nothing more is written, no callback of it fires, and the page
+     * gets document.write back so the next stream can run. A script already in flight still runs; what it writes is
+     * dropped.
+     */
+    abort() {
+      if (this.aborted) {
+        return;
+      }
+      this.aborted = true;
+      this.writeQueue = [];
+      this.scriptStack = [];
+      this.deferredRemote = null;
+      this.pendingTemplate = null;
+      if (this.finish) {
+        this.finish(true);
       }
     }
 
@@ -1399,6 +1423,10 @@
      * @private
      */
     _onScriptDone(tok) {
+      // Epom fork: a script of a cancelled stream finishing late.
+      if (this.aborted) {
+        return;
+      }
 
       // Pop script and check nesting.
       if (tok !== this.scriptStack[0]) {
@@ -1432,7 +1460,12 @@
     _writeScriptToken(tok, done) {
       const el = this._buildScript(tok);
       const asyncRelease = this._shouldRelease(el);
-      const afterAsync = this.options.afterAsync;
+      // Epom fork: not for a stream cancelled while the script loaded.
+      const afterAsync = () => {
+        if (!this.aborted) {
+          this.options.afterAsync();
+        }
+      };
 
       if (tok.src) {
         // Fix for attribute "SRC" (capitalized). IE does not recognize it.
@@ -1723,20 +1756,29 @@
       oldOnError.apply(active.win, [msg, url, line]);
     };
 
-    // Write to the stream
-    active.write(html, () => {
+    const stream = active;
+
+    // Epom fork: put the page back and start the next stream; done is not called for a cancelled stream.
+    function finish(cancelled) {
       // restore document.write
       Object.assign(doc, stash);
 
       // restore window.onerror
-      active.win.onerror = oldOnError;
+      stream.win.onerror = oldOnError;
 
-      options.done();
+      if (!cancelled) {
+        options.done();
+      }
       active = null;
       nextStream();
-    });
+    }
 
-    return active;
+    stream.finish = finish;
+
+    // Write to the stream
+    stream.write(html, () => finish(false));
+
+    return stream;
   }
 
   function postscribe(el, html, options) {

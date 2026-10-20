@@ -136,20 +136,29 @@ function runStream(el, html, options) {
     oldOnError.apply(active.win, [msg, url, line]);
   };
 
-  // Write to the stream
-  active.write(html, () => {
+  const stream = active;
+
+  // Epom fork: put the page back and start the next stream; done is not called for a cancelled stream.
+  function finish(cancelled) {
     // restore document.write
     Object.assign(doc, stash);
 
     // restore window.onerror
-    active.win.onerror = oldOnError;
+    stream.win.onerror = oldOnError;
 
-    options.done();
+    if (!cancelled) {
+      options.done();
+    }
     active = null;
     nextStream();
-  });
+  }
 
-  return active;
+  stream.finish = finish;
+
+  // Write to the stream
+  stream.write(html, () => finish(false));
+
+  return stream;
 }
 
 export default function postscribe(el, html, options) {

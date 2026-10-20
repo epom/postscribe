@@ -145,6 +145,11 @@ export default class WriteStream {
    * @param {...String} str The strings to write
    */
   write(...str) {
+    // Epom fork: a cancelled stream writes nothing more, whatever its scripts still try to write.
+    if (this.aborted) {
+      return;
+    }
+
     this.writeQueue.push(...str);
 
     // Process writes
@@ -160,6 +165,25 @@ export default class WriteStream {
       } else {
         this._writeImpl(arg);
       }
+    }
+  }
+
+  /**
+   * Epom fork: stop the stream (postscribe's cancel()). Nothing more is written, no callback of it fires, and the page
+   * gets document.write back so the next stream can run. A script already in flight still runs; what it writes is
+   * dropped.
+   */
+  abort() {
+    if (this.aborted) {
+      return;
+    }
+    this.aborted = true;
+    this.writeQueue = [];
+    this.scriptStack = [];
+    this.deferredRemote = null;
+    this.pendingTemplate = null;
+    if (this.finish) {
+      this.finish(true);
     }
   }
 
@@ -576,6 +600,10 @@ export default class WriteStream {
    * @private
    */
   _onScriptDone(tok) {
+    // Epom fork: a script of a cancelled stream finishing late.
+    if (this.aborted) {
+      return;
+    }
 
     // Pop script and check nesting.
     if (tok !== this.scriptStack[0]) {
@@ -609,7 +637,12 @@ export default class WriteStream {
   _writeScriptToken(tok, done) {
     const el = this._buildScript(tok);
     const asyncRelease = this._shouldRelease(el);
-    const afterAsync = this.options.afterAsync;
+    // Epom fork: not for a stream cancelled while the script loaded.
+    const afterAsync = () => {
+      if (!this.aborted) {
+        this.options.afterAsync();
+      }
+    };
 
     if (tok.src) {
       // Fix for attribute "SRC" (capitalized). IE does not recognize it.
