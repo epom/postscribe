@@ -117,6 +117,20 @@ describe('epom fork', () => {
     });
   });
 
+  describe('end tags of empty elements (#7, the skipped upstream selfclosing spec)', () => {
+    it('drops a stray </embed> or </img> instead of closing the enclosing element', async() => {
+      const div = await write('<div id="e7"><embed></embed><img src="data:image/png,"></img><p>inside</p></div><p>outside</p>');
+      expect(document.querySelector('#e7 > p').textContent).to.be('inside');
+      expect(div.lastChild.textContent).to.be('outside');
+    });
+
+    it('reads </br> as <br>, as the browser does', async() => {
+      const div = await write('<div id="e7b">a</br>b</div>');
+      expect(document.getElementById('e7b').innerHTML).to.be('a<br>b');
+      expect(div.childNodes.length).to.be(1);
+    });
+  });
+
   describe('nonce option (#6, krux/postscribe#512)', () => {
     it('puts the nonce on the scripts and styles it creates', async() => {
       await write('<style id="n6s">#n6 { color: red; }</style>' +

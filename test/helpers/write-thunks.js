@@ -31,7 +31,7 @@ export class Html {
   }
 
   escapeSlashes() {
-    return $.map(this.value, v => v.replace(new RegExp('</(script)>', 'i'), '<\\/$1>').replace('\n', '\\n'));
+    return $.map(this.value, v => v.replace(new RegExp('</(script)>', 'i'), '<\\/$1>').replace(/\n/g, '\\n'));
   }
 }
 

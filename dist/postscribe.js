@@ -363,11 +363,11 @@
   });
 
   /**
-   * Empty Elements - HTML 4.01
+   * Empty Elements - HTML 4.01, plus the HTML5 void elements (Epom fork: SOURCE, TRACK, WBR)
    *
    * @type {RegExp}
    */
-  const EMPTY = /^(AREA|BASE|BASEFONT|BR|COL|FRAME|HR|IMG|INPUT|ISINDEX|LINK|META|PARAM|EMBED)$/i;
+  const EMPTY = /^(AREA|BASE|BASEFONT|BR|COL|FRAME|HR|IMG|INPUT|ISINDEX|LINK|META|PARAM|EMBED|SOURCE|TRACK|WBR)$/i;
 
   /**
    * Elements that you can intentionally leave open (and which close themselves)
@@ -481,6 +481,17 @@
       },
 
       endTag(tok) {
+        // Epom fork: an empty element has no end tag. The browser drops a stray one (and reads </br> as <br>); taking
+        // it for a mismatched end tag closed the enclosing element instead.
+        if (EMPTY.test(tok.tagName)) {
+          readTokenImpl();
+          if ((/^br$/i).test(tok.tagName)) {
+            parser.prepend('<br>');
+          }
+          prepareNextToken();
+          return;
+        }
+
         const last = stack.last();
         if (last) {
           if (options.tagSoupFix && !stack.lastTagNameEq(tok.tagName)) {

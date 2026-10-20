@@ -2,7 +2,7 @@ import * as wc from '../helpers/write-comparor.js';
 import {Html} from '../helpers/write-thunks.js';
 
 describe('selfclosing', () => {
-  xit('Handles closed self-closing tags that\'re closed.', done => {
+  it('Handles closed self-closing tags that\'re closed.', done => {
     wc.compare(
       new Html(`
         <div id="first" style="background: red; padding: 5px">

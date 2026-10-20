@@ -26,11 +26,10 @@ export default {
     'inline': new Html('A<script type="text/javascript">document.write("B");</script>C'),
     'nested document.write': `A<script type="text/javascript">document.write("B<script type='text/javascript'>document.write('C');<\\/script>D");</script>E`,
     'globals': '<script>var XQWER = "foo";<\/script><script>document.write("" + window.XQWER + (this === window));<\/script>',
-    'skip:partial script': [
-      new Html('<script>var QWVES = 1'),
-      new Html('7;</script>'),
-      new Html('<script>document.write(QWVES);</script>')
-    ],
+    // A script split across document.write calls of one script. As three separate Html entries it could never pass:
+    // each becomes its own postscribe() call with its own parser, while the native side writes into one document.
+    'partial script': new Js('document.write("<script>var QWVES = 1"); document.write("7;<\\/script>");' +
+      ' document.write("<script>document.write(QWVES);<\\/script>");'),
     'remote then write': [
       new Uri('remote/write-div.js'),
       new Html('<div id="local">Local</div>')
@@ -59,7 +58,7 @@ export default {
       new Uri('remote/set-global1.js'),
       new Js('document.write(this.global1);')
     ],
-    'skip:corrupt src': '<img src"abc.jpg"><div>WORKS</div>',
+    'corrupt src': '<img src"abc.jpg"><div>WORKS</div>',
     'Escaped HTML Entity script entity name': '<script type="text/javascript" src="remote/write-using-query-string.js?k=1&k2=2"></script>',
     'HTML entity text to write': '<span><p>foo&amp;&#47;&#x00024;</p></span>',
     'remote with params then write (use network observer)': [
@@ -112,8 +111,8 @@ export default {
     'writes text inside tag': '<script src="remote/write-multi-div.js"><\/script>'
   },
   'nesting scripts': {
-    // Broken in IE10 see: https://github.com/krux/postscribe/issues/154
-    'skip:script written within another should complete': "<script>document.write('<script type=\"text/javascript\" src=\"remote/write-using-query-string.js?k=1&k2=2\"><\\/script>')<\/script>"
+    // Was skipped for IE10 (krux/postscribe#154); passes in current browsers.
+    'script written within another should complete': "<script>document.write('<script type=\"text/javascript\" src=\"remote/write-using-query-string.js?k=1&k2=2\"><\\/script>')<\/script>"
   },
   simplewrites: {
     'empty tag': new Html('<span>A<input name="B">C</span>D'),
