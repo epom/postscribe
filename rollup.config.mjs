@@ -19,6 +19,7 @@ export default {
   input: 'src/main.js',
   output: [
     {...output, file: 'dist/postscribe.js'},
-    {...output, file: 'dist/postscribe.min.js', plugins: [terser({format: {comments: /@license/}})]}
+    {...output, file: 'dist/postscribe.min.js', plugins: [terser({format: {comments: /@license/}})]},
+    {format: 'es', file: 'dist/postscribe.mjs', banner}
   ]
 };

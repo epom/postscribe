@@ -1,0 +1,4 @@
+{
+  "compilerOptions": {"strict": true, "noEmit": true, "lib": ["dom", "es2017"], "esModuleInterop": true, "module": "commonjs", "skipLibCheck": false},
+  "files": ["usage.ts"]
+}

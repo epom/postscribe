@@ -44,22 +44,25 @@
     "jquery": "^3.7.1",
     "playwright": "^1.64.1",
     "rollup": "^4.64.12",
-    "sinon": "^22.1.0"
+    "sinon": "^22.1.0",
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "build": "rollup -c",
-    "lint": "eslint .",
+    "lint": "eslint . && tsc -p test/types",
     "test": "web-test-runner",
     "test:check": "node test/epom/postscribe-check.cjs dist/postscribe.js && node test/epom/postscribe-check.cjs dist/postscribe.min.js",
-    "verify": "npm run lint && npm run build && git diff --exit-code -- dist && npm test && npm run test:check"
+    "verify": "npm run lint && npm run build && git diff --exit-code -- dist && npm test && npm run test:check",
+    "test:differential": "DIFFERENTIAL=1 web-test-runner"
   },
-  "version": "3.0.1",
+  "version": "3.1.0",
   "module": "src/main.js",
   "unpkg": "dist/postscribe.min.js",
   "jsdelivr": "dist/postscribe.min.js",
   "files": [
     "dist/",
     "src/",
+    "postscribe.d.ts",
     "LICENSE",
     "README.md",
     "CHANGELOG.md"
@@ -75,5 +78,15 @@
     {
       "name": "Krux Digital, Inc."
     }
-  ]
+  ],
+  "types": "postscribe.d.ts",
+  "exports": {
+    ".": {
+      "types": "./postscribe.d.ts",
+      "import": "./dist/postscribe.mjs",
+      "require": "./dist/postscribe.js",
+      "default": "./dist/postscribe.js"
+    },
+    "./package.json": "./package.json"
+  }
 }
