@@ -194,7 +194,7 @@ export default class WriteStream {
     const tokens = [];
 
     // stop if we see a script token
-    while ((tok = this.parser.readToken())) {
+    while ((tok = this._readToken())) {
       // Epom fork: a template's content is inert, so take it whole instead of running the scripts in it.
       if (isTemplateStart(tok)) {
         const template = this._readTemplate(tok);
@@ -230,6 +230,25 @@ export default class WriteStream {
   }
 
   /**
+   * Epom fork: the parser's next token, skipping a <!DOCTYPE ...> or <?xml ...?> it has no token for (it would
+   * stop there and drop the rest). A browser ignores both inside a document's body anyway.
+   *
+   * @returns {Object|undefined}
+   * @private
+   */
+  _readToken() {
+    const tok = this.parser.readToken();
+    if (!tok && (/^<(?:![^-]|\?)/).test(this.parser.stream)) {
+      const end = this.parser.stream.indexOf('>');
+      if (end !== -1) {
+        this.parser.stream = this.parser.stream.slice(end + 1);
+        return this._readToken();
+      }
+    }
+    return tok;
+  }
+
+  /**
    * Epom fork: read the rest of a template, nested ones included, into a single inert token. Returns null when
    * the html ends inside it: what was read is kept and put in front of the next write.
    *
@@ -242,7 +261,7 @@ export default class WriteStream {
     let depth = 1;
     let tok;
 
-    while ((tok = this.parser.readToken())) {
+    while ((tok = this._readToken())) {
       if (isTemplateStart(tok)) {
         depth++;
       } else if (isTemplateEnd(tok) && --depth === 0) {
