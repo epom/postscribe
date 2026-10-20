@@ -13,32 +13,6 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.postscribe = factory());
 })(this, (function () { 'use strict';
 
-  let tagSoup = false;
-  let selfClose = false;
-
-  const work = window.document.createElement('div');
-
-  try {
-    const html = '<P><I></P></I>';
-    work.innerHTML = html;
-    tagSoup = work.innerHTML !== html;
-  } catch (e) {
-    tagSoup = false;
-  }
-
-  try {
-    work.innerHTML = '<P><i><P></P></i></P>';
-    selfClose = work.childNodes.length === 2;
-  } catch (e) {
-    selfClose = false;
-  }
-
-  var supports = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    get selfClose () { return selfClose; },
-    get tagSoup () { return tagSoup; }
-  });
-
   /**
    * Escape quotes in the given value.
    *
@@ -52,6 +26,24 @@
     return !value ? defaultValue : value.replace(/([^"]*)"/g, (_, prefix) => {
       return (/\\/).test(prefix) ? `${prefix}"` : `${prefix}\\\"`;
     });
+  }
+
+  /**
+   * Epom fork: an attribute value, quoted for re-parsing. A bare double quote can only have come from a single-quoted
+   * value, so that one goes back in single quotes (or as &quot; when it holds a single quote too): escapeQuotes'
+   * backslash is JavaScript, not HTML, and turned data-cfg='{"a":1}' into data-cfg="{\"a\":1}", which breaks the
+   * tag. Anything else keeps the original double-quoted form, backslashes and all, so the browser reads it as it read
+   * the source.
+   *
+   * @param {string} val The attribute value as written
+   * @returns {string}
+   */
+  function quoteAttr(val) {
+    const value = String(val);
+    if (!(/(^|[^\\])"/).test(value)) {
+      return `"${escapeQuotes(value)}"`;
+    }
+    return value.indexOf("'") === -1 ? `'${value}'` : `"${value.replace(/"/g, '&quot;')}"`;
   }
 
   /**
@@ -137,7 +129,7 @@
           const val = tok.attrs[key];
           if (typeof tok.booleanAttrs === 'undefined' ||
               typeof tok.booleanAttrs[key] === 'undefined') {
-            str += `="${escapeQuotes(val)}"`;
+            str += `=${quoteAttr(val)}`;
           }
         }
       }
@@ -251,9 +243,11 @@
    * @type {Object}
    */
   const REGEXES = {
-    startTag: /^<([\-A-Za-z0-9_!:]+)((?:\s+[\w\-]+(?:\s*=?\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/,
+    // Epom fork: attribute names are anything but whitespace, quotes, '>', '/' and '=', as in HTML (xlink:href,
+    // xmlns:xlink, @click, :class), not just [\w-].
+    startTag: /^<([\-A-Za-z0-9_!:]+)((?:\s+[^\s"'>\/=]+(?:\s*=?\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/,
     endTag: /^<\/([\-A-Za-z0-9_:]+)[^>]*>/,
-    attr: /(?:([\-A-Za-z0-9_]+)\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))|(?:([\-A-Za-z0-9_]+)(\s|$)+)/g,
+    attr: /(?:([^\s"'>\/=]+)\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))|(?:([^\s"'>\/=]+)(\s|$)+)/g,
     fillAttr: /^(checked|compact|declare|defer|disabled|ismap|multiple|nohref|noresize|noshade|nowrap|readonly|selected)$/i
   };
 
@@ -282,21 +276,51 @@
   }
 
   /**
+   * Epom fork: index of the '>' that ends the tag at the start of the stream, or -1 while it is incomplete. A quote
+   * opens a value only right after '=', as in HTML, and a '>' inside it does not count: when a write ends inside a
+   * quoted value (title="a >), the tag waits for the next write instead of ending there.
+   *
+   * @param {string} stream The input stream
+   * @returns {number}
+   */
+  function tagEnd(stream) {
+    let quote = null;
+    for (let i = 1; i < stream.length; i++) {
+      const c = stream.charAt(i);
+      if (quote) {
+        if (c === quote) {
+          quote = null;
+        }
+      } else if ((c === '"' || c === "'") && (/=\s*$/).test(stream.slice(Math.max(0, i - 32), i))) {
+        quote = c;
+      } else if (c === '>') {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
    * Reads start tag token.
    *
    * @param {string} stream The input stream
    * @returns {StartTagToken}
    */
   function startTag(stream) {
-    const endTagIndex = stream.indexOf('>');
+    const endTagIndex = tagEnd(stream);
     if (endTagIndex !== -1) {
-      const match = stream.match(REGEXES.startTag);
+      const match = stream.slice(0, endTagIndex + 1).match(REGEXES.startTag);
       if (match) {
         const attrs = {};
         const booleanAttrs = {};
         let rest = match[2];
 
         match[2].replace(REGEXES.attr, function(match, name) {
+          // Epom fork: of repeated attributes the browser keeps the first.
+          if (Object.prototype.hasOwnProperty.call(attrs, arguments[5] || name)) {
+            rest = rest.replace(match, '');
+            return;
+          }
           if (!(arguments[2] || arguments[3] || arguments[4] || arguments[5])) {
             attrs[name] = '';
           } else if (arguments[5]) {
@@ -467,7 +491,7 @@
         if (tagName.toUpperCase() === 'TR' && stack.lastTagNameEq('TABLE')) {
           parser.prepend('<TBODY>');
           prepareNextToken();
-        } else if (options.selfCloseFix && CLOSESELF.test(tagName) &&
+        } else if (CLOSESELF.test(tagName) &&
             stack.containsTagName(tagName)) {
           if (stack.lastTagNameEq(tagName)) {
             closeLast(parser, stack);
@@ -494,13 +518,13 @@
 
         const last = stack.last();
         if (last) {
-          if (options.tagSoupFix && !stack.lastTagNameEq(tok.tagName)) {
+          if (!stack.lastTagNameEq(tok.tagName)) {
             // cleanup tag soup
             closeLast(parser, stack);
           } else {
             stack.pop();
           }
-        } else if (options.tagSoupFix) {
+        } else {
           // cleanup tag soup part 2: skip this token
           readTokenImpl();
           prepareNextToken();
@@ -552,19 +576,10 @@
     constructor(stream = '', options = {}) {
       this.stream = stream;
 
-      let fix = false;
-      const fixedTokenOptions = {};
-
-      for (let key in supports) {
-        if (Object.prototype.hasOwnProperty.call(supports, key)) {
-          if (options.autoFix) {
-            fixedTokenOptions[`${key}Fix`] = true; // !supports[key];
-          }
-          fix = fix || fixedTokenOptions[`${key}Fix`];
-        }
-      }
-
-      if (fix) {
+      // Epom fork: autoFix turns both fixes on. They used to be gated on feature tests of 2010s browsers (supports.js),
+      // which every current browser passes the same way, so the tests are gone.
+      if (options.autoFix) {
+        const fixedTokenOptions = {};
         this._readToken = fixedReadTokenFactory(this, fixedTokenOptions, () => this._readTokenImpl());
         this._peekToken = fixedReadTokenFactory(this, fixedTokenOptions, () => this._peekTokenImpl());
       } else {
@@ -616,9 +631,17 @@
           if (detect[type].test(this.stream)) {
             const token = streamReaders[type](this.stream);
 
+            // Epom fork: a comment whose --> has not been written yet waits for it; falling through read "<!--" as a
+            // start tag and its content as markup.
+            if (!token && type === 'comment') {
+              return null;
+            }
+
             if (token) {
+              // Epom fork: not only script and style: a textarea, noscript or iframe whose end tag has not been
+              // written yet waits for it too, or its content was parsed as markup.
               if (token.type === 'startTag' &&
-                  (/script|style/i).test(token.tagName)) {
+                  (/^(script|style|noscript|iframe|textarea)$/i).test(token.tagName)) {
                 return null;
               } else {
                 token.text = this.stream.substr(0, token.length);
@@ -702,14 +725,6 @@
     return escapedAttrs;
   };
 
-  HtmlParser.supports = supports;
-
-  for (let key in supports) {
-    if (Object.prototype.hasOwnProperty.call(supports, key)) {
-      HtmlParser.browserHasFlaw = HtmlParser.browserHasFlaw || (!supports[key]) && key;
-    }
-  }
-
   /**
    * Determine if the thing is not undefined and not null.
    *
@@ -728,21 +743,6 @@
    */
   function isFunction(x) {
     return 'function' === typeof x;
-  }
-
-  /**
-   * Loop over each item in an array-like value.
-   *
-   * @param {Array<*>} arr The array to loop over
-   * @param {Function} fn The function to call
-   * @param {?Object} target The object to bind to the function
-   */
-  function each(arr, fn, target) {
-    let i;
-    const len = (arr && arr.length) || 0;
-    for (i = 0; i < len; i++) {
-      fn.call(target, arr[i], i);
-    }
   }
 
   /**
@@ -775,24 +775,6 @@
       }
     });
     return options;
-  }
-
-  /**
-   * Convert value (e.g., a NodeList) to an array.
-   *
-   * @param {*} obj The object
-   * @returns {Array<*>}
-   */
-  function toArray(obj) {
-    try {
-      return Array.prototype.slice.call(obj);
-    } catch (e) {
-      const ret = [];
-      each(obj, function(val) {
-        ret.push(val);
-      });
-      return ret;
-    }
   }
 
   /**
@@ -864,12 +846,7 @@
    * @returns {String}
    */
   function getData(el, name) {
-    const attr = BASEATTR + name;
-
-    const val = el.getAttribute(attr);
-
-    // IE 8 returns a number if it's a number
-    return !existy(val) ? val : String(val);
+    return el.getAttribute(BASEATTR + name);
   }
 
   /**
@@ -948,7 +925,7 @@
       this.root = root;
       this.options = options;
       this.doc = root.ownerDocument;
-      this.win = this.doc.defaultView || this.doc.parentWindow;
+      this.win = this.doc.defaultView;
       this.parser = new HtmlParser('', {autoFix: options.autoFix});
 
       // Actual elements by id.
@@ -990,8 +967,10 @@
         const arg = this.writeQueue.shift();
 
         if (isFunction(arg)) {
-          // Epom fork: the stream ends with a function, so a template still open by now never gets closed.
+          // Epom fork: the stream ends with a function, so a template still open by now never gets closed, and
+          // whatever the parser still holds (an unterminated textarea or iframe) is written as the browser would.
           this._flushPendingTemplate();
+          this._flushParser();
           this._callFunction(arg);
         } else {
           this._writeImpl(arg);
@@ -1038,22 +1017,28 @@
      * @private
      */
     _writeImpl(html) {
-      if (this.pendingTemplate) {
-        html = this.pendingTemplate.start.toString() + this.pendingTemplate.inner + html;
-        this.pendingTemplate = null;
-      }
-      this.parser.append(html);
+      this.parser.append(this._normalizeNewlines(html));
 
       let tok;
       let script;
       let style;
       const tokens = [];
 
+      // Epom fork: a template an earlier write left open goes on from where it stopped.
+      if (this.pendingTemplate) {
+        const template = this._readTemplate();
+        if (!template) {
+          return;
+        }
+        tokens.push(template);
+      }
+
       // stop if we see a script token
       while ((tok = this._readToken())) {
         // Epom fork: a template's content is inert, so take it whole instead of running the scripts in it.
         if (isTemplateStart(tok)) {
-          const template = this._readTemplate(tok);
+          this.pendingTemplate = {start: tok, inner: [], depth: 1};
+          const template = this._readTemplate();
           if (!template) {
             break;
           }
@@ -1086,6 +1071,24 @@
     }
 
     /**
+     * Epom fork: CR LF and lone CR become LF before anything is parsed, as the browser preprocesses its input, also when
+     * the CR and the LF arrive in different writes. Script and style text skipped that and kept the CRs; split writes
+     * got an extra newline.
+     *
+     * @param {String} html A chunk of the stream
+     * @returns {String}
+     * @private
+     */
+    _normalizeNewlines(html) {
+      let text = String(html);
+      if (this.endsWithCR && text.charAt(0) === '\n') {
+        text = text.slice(1);
+      }
+      this.endsWithCR = (/\r$/).test(text);
+      return text.replace(/\r\n?/g, '\n');
+    }
+
+    /**
      * Epom fork: the parser's next token, skipping a <!DOCTYPE ...> or <?xml ...?> it has no token for (it would
      * stop there and drop the rest). A browser ignores both inside a document's body anyway.
      *
@@ -1094,10 +1097,15 @@
      */
     _readToken() {
       const tok = this.parser.readToken();
-      if (!tok && (/^<(?:![^-]|\?)/).test(this.parser.stream)) {
-        const end = this.parser.stream.indexOf('>');
+      const stream = this.parser.stream;
+      if (!tok && (/^<(?:![^-]|\?)/).test(stream)) {
+        const end = stream.indexOf('>');
         if (end !== -1) {
-          this.parser.stream = this.parser.stream.slice(end + 1);
+          // A doctype is dropped; anything else the browser keeps as a comment: <?xml ?> as <!--?xml ?-->,
+          // <![CDATA[x]]> as <!--[CDATA[x]]-->.
+          const rest = stream.slice(end + 1);
+          this.parser.stream = (/^<!doctype/i).test(stream) ? rest
+            : `<!--${stream.slice(stream.charAt(1) === '?' ? 1 : 2, end)}-->${rest}`;
           return this._readToken();
         }
       }
@@ -1105,29 +1113,43 @@
     }
 
     /**
-     * Epom fork: read the rest of a template, nested ones included, into a single inert token. Returns null when
-     * the html ends inside it: what was read is kept and put in front of the next write.
+     * Epom fork: read the rest of the template in this.pendingTemplate, nested ones included, into a single inert token.
+     * Returns null when the html ends inside it: what was read stays in this.pendingTemplate (and an incomplete token
+     * in the parser) for the next write to go on from. Tokens are never read twice: the parser's auto-fix keeps a
+     * stack of open tags, and reading them again doubled it.
      *
-     * @param {Object} start The template start tag token
      * @returns {Object|null}
      * @private
      */
-    _readTemplate(start) {
-      const inner = [];
-      let depth = 1;
+    _readTemplate() {
+      const pending = this.pendingTemplate;
       let tok;
 
       while ((tok = this._readToken())) {
         if (isTemplateStart(tok)) {
-          depth++;
-        } else if (isTemplateEnd(tok) && --depth === 0) {
-          return {type: 'template', start, inner: inner.join(''), end: tok.toString()};
+          pending.depth++;
+        } else if (isTemplateEnd(tok) && --pending.depth === 0) {
+          this.pendingTemplate = null;
+          return {type: 'template', start: pending.start, inner: pending.inner.join(''), end: tok.toString()};
         }
-        inner.push(tok.toString());
+        pending.inner.push(tok.toString());
       }
 
-      this.pendingTemplate = {start, inner: inner.join('') + (this.parser.clear() || '')};
       return null;
+    }
+
+    /**
+     * Epom fork: write what the parser still holds at the end of the stream, as static html: an unterminated textarea,
+     * iframe or noscript (which wait for their end tag) is still created, as in the browser. An unterminated script is
+     * written too and, as in the browser, does not run.
+     *
+     * @private
+     */
+    _flushParser() {
+      const rest = this.parser.clear();
+      if (rest) {
+        this._writeStaticTokens([{type: 'chars', text: rest, toString: () => rest}]);
+      }
     }
 
     /**
@@ -1139,7 +1161,7 @@
       if (this.pendingTemplate) {
         const {start, inner} = this.pendingTemplate;
         this.pendingTemplate = null;
-        this._writeStaticTokens([{type: 'template', start, inner, end: ''}]);
+        this._writeStaticTokens([{type: 'template', start, inner: inner.join('') + (this.parser.clear() || ''), end: ''}]);
       }
     }
 
@@ -1274,7 +1296,7 @@
         }
 
         // prepend childNodes to stack
-        stack.unshift.apply(stack, toArray(node.childNodes));
+        stack.unshift(...node.childNodes);
       }
     }
 
@@ -1356,11 +1378,7 @@
 
       // Set content
       if (tok.content) {
-        if (el.styleSheet && !el.sheet) {
-          el.styleSheet.cssText = tok.content;
-        } else {
-          el.appendChild(this.doc.createTextNode(tok.content));
-        }
+        el.appendChild(this.doc.createTextNode(tok.content));
       }
     }
 
@@ -1373,7 +1391,6 @@
     _buildStyle(tok) {
       const el = this.doc.createElement(tok.tagName);
 
-      el.setAttribute('type', tok.type);
       // Epom fork: the page's CSP nonce, when given.
       if (this.options.nonce) {
         el.nonce = this.options.nonce;
@@ -1468,7 +1485,7 @@
       };
 
       if (tok.src) {
-        // Fix for attribute "SRC" (capitalized). IE does not recognize it.
+        // the src as decoded and in any case (SRC=)
         el.src = tok.src;
         if (!tok.inert) {
           this._scriptLoadHandler(el, !asyncRelease ? () => {
@@ -1543,7 +1560,7 @@
      */
     _scriptLoadHandler(el, done) {
       function cleanup() {
-        el = el.onload = el.onreadystatechange = el.onerror = null;
+        el = el.onload = el.onerror = null;
       }
 
       const error = this.options.error;
@@ -1597,12 +1614,6 @@
             }
           }
           failure({msg: `remote script failed ${el.src}`});
-        },
-
-        onreadystatechange() {
-          if (/^(loaded|complete)$/.test(el.readyState)) {
-            success();
-          }
         }
       });
     }

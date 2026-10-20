@@ -19,21 +19,6 @@ export function isFunction(x) {
 }
 
 /**
- * Loop over each item in an array-like value.
- *
- * @param {Array<*>} arr The array to loop over
- * @param {Function} fn The function to call
- * @param {?Object} target The object to bind to the function
- */
-export function each(arr, fn, target) {
-  let i;
-  const len = (arr && arr.length) || 0;
-  for (i = 0; i < len; i++) {
-    fn.call(target, arr[i], i);
-  }
-}
-
-/**
  * Loop over each key/value pair in a hash.
  *
  * @param {Object} obj The object
@@ -63,24 +48,6 @@ export function defaults(options, _defaults) {
     }
   });
   return options;
-}
-
-/**
- * Convert value (e.g., a NodeList) to an array.
- *
- * @param {*} obj The object
- * @returns {Array<*>}
- */
-export function toArray(obj) {
-  try {
-    return Array.prototype.slice.call(obj);
-  } catch (e) {
-    const ret = [];
-    each(obj, function(val) {
-      ret.push(val);
-    });
-    return ret;
-  }
 }
 
 /**

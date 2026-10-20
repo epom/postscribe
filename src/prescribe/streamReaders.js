@@ -7,9 +7,11 @@ import {CommentToken, CharsToken, StartTagToken,
  * @type {Object}
  */
 const REGEXES = {
-  startTag: /^<([\-A-Za-z0-9_!:]+)((?:\s+[\w\-]+(?:\s*=?\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/,
+  // Epom fork: attribute names are anything but whitespace, quotes, '>', '/' and '=', as in HTML (xlink:href,
+  // xmlns:xlink, @click, :class), not just [\w-].
+  startTag: /^<([\-A-Za-z0-9_!:]+)((?:\s+[^\s"'>\/=]+(?:\s*=?\s*(?:(?:"[^"]*")|(?:'[^']*')|[^>\s]+))?)*)\s*(\/?)>/,
   endTag: /^<\/([\-A-Za-z0-9_:]+)[^>]*>/,
-  attr: /(?:([\-A-Za-z0-9_]+)\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))|(?:([\-A-Za-z0-9_]+)(\s|$)+)/g,
+  attr: /(?:([^\s"'>\/=]+)\s*=\s*(?:(?:"((?:\\.|[^"])*)")|(?:'((?:\\.|[^'])*)')|([^>\s]+)))|(?:([^\s"'>\/=]+)(\s|$)+)/g,
   fillAttr: /^(checked|compact|declare|defer|disabled|ismap|multiple|nohref|noresize|noshade|nowrap|readonly|selected)$/i
 };
 
@@ -38,21 +40,51 @@ export function chars(stream) {
 }
 
 /**
+ * Epom fork: index of the '>' that ends the tag at the start of the stream, or -1 while it is incomplete. A quote
+ * opens a value only right after '=', as in HTML, and a '>' inside it does not count: when a write ends inside a
+ * quoted value (title="a >), the tag waits for the next write instead of ending there.
+ *
+ * @param {string} stream The input stream
+ * @returns {number}
+ */
+function tagEnd(stream) {
+  let quote = null;
+  for (let i = 1; i < stream.length; i++) {
+    const c = stream.charAt(i);
+    if (quote) {
+      if (c === quote) {
+        quote = null;
+      }
+    } else if ((c === '"' || c === "'") && (/=\s*$/).test(stream.slice(Math.max(0, i - 32), i))) {
+      quote = c;
+    } else if (c === '>') {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Reads start tag token.
  *
  * @param {string} stream The input stream
  * @returns {StartTagToken}
  */
 export function startTag(stream) {
-  const endTagIndex = stream.indexOf('>');
+  const endTagIndex = tagEnd(stream);
   if (endTagIndex !== -1) {
-    const match = stream.match(REGEXES.startTag);
+    const match = stream.slice(0, endTagIndex + 1).match(REGEXES.startTag);
     if (match) {
       const attrs = {};
       const booleanAttrs = {};
       let rest = match[2];
 
       match[2].replace(REGEXES.attr, function(match, name) {
+        // Epom fork: of repeated attributes the browser keeps the first.
+        if (Object.prototype.hasOwnProperty.call(attrs, arguments[5] || name)) {
+          rest = rest.replace(match, '');
+          return;
+        }
         if (!(arguments[2] || arguments[3] || arguments[4] || arguments[5])) {
           attrs[name] = '';
         } else if (arguments[5]) {

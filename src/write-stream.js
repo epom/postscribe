@@ -2,12 +2,6 @@ import HtmlParser from './prescribe/HtmlParser.js';
 import * as utils from './utils.js';
 
 /**
- * Turn on to debug how each chunk affected the DOM.
- * @type {boolean}
- */
-const DEBUG_CHUNK = false;
-
-/**
  * Prefix for data attributes on DOM elements.
  * @type {string}
  */
@@ -33,12 +27,7 @@ const PROXY_SCRIPT = 'ps-script';
  * @returns {String}
  */
 function getData(el, name) {
-  const attr = BASEATTR + name;
-
-  const val = el.getAttribute(attr);
-
-  // IE 8 returns a number if it's a number
-  return !utils.existy(val) ? val : String(val);
+  return el.getAttribute(BASEATTR + name);
 }
 
 /**
@@ -117,7 +106,7 @@ export default class WriteStream {
     this.root = root;
     this.options = options;
     this.doc = root.ownerDocument;
-    this.win = this.doc.defaultView || this.doc.parentWindow;
+    this.win = this.doc.defaultView;
     this.parser = new HtmlParser('', {autoFix: options.autoFix});
 
     // Actual elements by id.
@@ -159,8 +148,10 @@ export default class WriteStream {
       const arg = this.writeQueue.shift();
 
       if (utils.isFunction(arg)) {
-        // Epom fork: the stream ends with a function, so a template still open by now never gets closed.
+        // Epom fork: the stream ends with a function, so a template still open by now never gets closed, and
+        // whatever the parser still holds (an unterminated textarea or iframe) is written as the browser would.
         this._flushPendingTemplate();
+        this._flushParser();
         this._callFunction(arg);
       } else {
         this._writeImpl(arg);
@@ -207,22 +198,28 @@ export default class WriteStream {
    * @private
    */
   _writeImpl(html) {
-    if (this.pendingTemplate) {
-      html = this.pendingTemplate.start.toString() + this.pendingTemplate.inner + html;
-      this.pendingTemplate = null;
-    }
-    this.parser.append(html);
+    this.parser.append(this._normalizeNewlines(html));
 
     let tok;
     let script;
     let style;
     const tokens = [];
 
+    // Epom fork: a template an earlier write left open goes on from where it stopped.
+    if (this.pendingTemplate) {
+      const template = this._readTemplate();
+      if (!template) {
+        return;
+      }
+      tokens.push(template);
+    }
+
     // stop if we see a script token
     while ((tok = this._readToken())) {
       // Epom fork: a template's content is inert, so take it whole instead of running the scripts in it.
       if (isTemplateStart(tok)) {
-        const template = this._readTemplate(tok);
+        this.pendingTemplate = {start: tok, inner: [], depth: 1};
+        const template = this._readTemplate();
         if (!template) {
           break;
         }
@@ -255,6 +252,24 @@ export default class WriteStream {
   }
 
   /**
+   * Epom fork: CR LF and lone CR become LF before anything is parsed, as the browser preprocesses its input, also when
+   * the CR and the LF arrive in different writes. Script and style text skipped that and kept the CRs; split writes
+   * got an extra newline.
+   *
+   * @param {String} html A chunk of the stream
+   * @returns {String}
+   * @private
+   */
+  _normalizeNewlines(html) {
+    let text = String(html);
+    if (this.endsWithCR && text.charAt(0) === '\n') {
+      text = text.slice(1);
+    }
+    this.endsWithCR = (/\r$/).test(text);
+    return text.replace(/\r\n?/g, '\n');
+  }
+
+  /**
    * Epom fork: the parser's next token, skipping a <!DOCTYPE ...> or <?xml ...?> it has no token for (it would
    * stop there and drop the rest). A browser ignores both inside a document's body anyway.
    *
@@ -263,10 +278,15 @@ export default class WriteStream {
    */
   _readToken() {
     const tok = this.parser.readToken();
-    if (!tok && (/^<(?:![^-]|\?)/).test(this.parser.stream)) {
-      const end = this.parser.stream.indexOf('>');
+    const stream = this.parser.stream;
+    if (!tok && (/^<(?:![^-]|\?)/).test(stream)) {
+      const end = stream.indexOf('>');
       if (end !== -1) {
-        this.parser.stream = this.parser.stream.slice(end + 1);
+        // A doctype is dropped; anything else the browser keeps as a comment: <?xml ?> as <!--?xml ?-->,
+        // <![CDATA[x]]> as <!--[CDATA[x]]-->.
+        const rest = stream.slice(end + 1);
+        this.parser.stream = (/^<!doctype/i).test(stream) ? rest
+          : `<!--${stream.slice(stream.charAt(1) === '?' ? 1 : 2, end)}-->${rest}`;
         return this._readToken();
       }
     }
@@ -274,29 +294,43 @@ export default class WriteStream {
   }
 
   /**
-   * Epom fork: read the rest of a template, nested ones included, into a single inert token. Returns null when
-   * the html ends inside it: what was read is kept and put in front of the next write.
+   * Epom fork: read the rest of the template in this.pendingTemplate, nested ones included, into a single inert token.
+   * Returns null when the html ends inside it: what was read stays in this.pendingTemplate (and an incomplete token
+   * in the parser) for the next write to go on from. Tokens are never read twice: the parser's auto-fix keeps a
+   * stack of open tags, and reading them again doubled it.
    *
-   * @param {Object} start The template start tag token
    * @returns {Object|null}
    * @private
    */
-  _readTemplate(start) {
-    const inner = [];
-    let depth = 1;
+  _readTemplate() {
+    const pending = this.pendingTemplate;
     let tok;
 
     while ((tok = this._readToken())) {
       if (isTemplateStart(tok)) {
-        depth++;
-      } else if (isTemplateEnd(tok) && --depth === 0) {
-        return {type: 'template', start, inner: inner.join(''), end: tok.toString()};
+        pending.depth++;
+      } else if (isTemplateEnd(tok) && --pending.depth === 0) {
+        this.pendingTemplate = null;
+        return {type: 'template', start: pending.start, inner: pending.inner.join(''), end: tok.toString()};
       }
-      inner.push(tok.toString());
+      pending.inner.push(tok.toString());
     }
 
-    this.pendingTemplate = {start, inner: inner.join('') + (this.parser.clear() || '')};
     return null;
+  }
+
+  /**
+   * Epom fork: write what the parser still holds at the end of the stream, as static html: an unterminated textarea,
+   * iframe or noscript (which wait for their end tag) is still created, as in the browser. An unterminated script is
+   * written too and, as in the browser, does not run.
+   *
+   * @private
+   */
+  _flushParser() {
+    const rest = this.parser.clear();
+    if (rest) {
+      this._writeStaticTokens([{type: 'chars', text: rest, toString: () => rest}]);
+    }
   }
 
   /**
@@ -308,7 +342,7 @@ export default class WriteStream {
     if (this.pendingTemplate) {
       const {start, inner} = this.pendingTemplate;
       this.pendingTemplate = null;
-      this._writeStaticTokens([{type: 'template', start, inner, end: ''}]);
+      this._writeStaticTokens([{type: 'template', start, inner: inner.join('') + (this.parser.clear() || ''), end: ''}]);
     }
   }
 
@@ -331,15 +365,7 @@ export default class WriteStream {
     this.proxyHistory += chunk.proxy;
     this.proxyRoot.innerHTML = chunk.html;
 
-    if (DEBUG_CHUNK) {
-      chunk.proxyInnerHTML = this.proxyRoot.innerHTML;
-    }
-
     this._walkChunk();
-
-    if (DEBUG_CHUNK) {
-      chunk.actualInnerHTML = this.root.innerHTML;
-    }
 
     return chunk;
   }
@@ -451,7 +477,7 @@ export default class WriteStream {
       }
 
       // prepend childNodes to stack
-      stack.unshift.apply(stack, utils.toArray(node.childNodes));
+      stack.unshift(...node.childNodes);
     }
   }
 
@@ -533,11 +559,7 @@ export default class WriteStream {
 
     // Set content
     if (tok.content) {
-      if (el.styleSheet && !el.sheet) {
-        el.styleSheet.cssText = tok.content;
-      } else {
-        el.appendChild(this.doc.createTextNode(tok.content));
-      }
+      el.appendChild(this.doc.createTextNode(tok.content));
     }
   }
 
@@ -550,7 +572,6 @@ export default class WriteStream {
   _buildStyle(tok) {
     const el = this.doc.createElement(tok.tagName);
 
-    el.setAttribute('type', tok.type);
     // Epom fork: the page's CSP nonce, when given.
     if (this.options.nonce) {
       el.nonce = this.options.nonce;
@@ -645,7 +666,7 @@ export default class WriteStream {
     };
 
     if (tok.src) {
-      // Fix for attribute "SRC" (capitalized). IE does not recognize it.
+      // the src as decoded and in any case (SRC=)
       el.src = tok.src;
       if (!tok.inert) {
         this._scriptLoadHandler(el, !asyncRelease ? () => {
@@ -720,7 +741,7 @@ export default class WriteStream {
    */
   _scriptLoadHandler(el, done) {
     function cleanup() {
-      el = el.onload = el.onreadystatechange = el.onerror = null;
+      el = el.onload = el.onerror = null;
     }
 
     const error = this.options.error;
@@ -774,12 +795,6 @@ export default class WriteStream {
           }
         }
         failure({msg: `remote script failed ${el.src}`});
-      },
-
-      onreadystatechange() {
-        if (/^(loaded|complete)$/.test(el.readyState)) {
-          success();
-        }
       }
     });
   }

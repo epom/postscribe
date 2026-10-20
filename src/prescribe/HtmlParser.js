@@ -1,4 +1,3 @@
-import * as supports from './supports.js';
 import * as streamReaders from './streamReaders.js';
 import fixedReadTokenFactory from './fixedReadTokenFactory.js';
 import {escapeQuotes} from './utils.js';
@@ -34,19 +33,10 @@ export default class HtmlParser {
   constructor(stream = '', options = {}) {
     this.stream = stream;
 
-    let fix = false;
-    const fixedTokenOptions = {};
-
-    for (let key in supports) {
-      if (Object.prototype.hasOwnProperty.call(supports, key)) {
-        if (options.autoFix) {
-          fixedTokenOptions[`${key}Fix`] = true; // !supports[key];
-        }
-        fix = fix || fixedTokenOptions[`${key}Fix`];
-      }
-    }
-
-    if (fix) {
+    // Epom fork: autoFix turns both fixes on. They used to be gated on feature tests of 2010s browsers (supports.js),
+    // which every current browser passes the same way, so the tests are gone.
+    if (options.autoFix) {
+      const fixedTokenOptions = {tagSoupFix: true, selfCloseFix: true};
       this._readToken = fixedReadTokenFactory(this, fixedTokenOptions, () => this._readTokenImpl());
       this._peekToken = fixedReadTokenFactory(this, fixedTokenOptions, () => this._peekTokenImpl());
     } else {
@@ -98,9 +88,17 @@ export default class HtmlParser {
         if (detect[type].test(this.stream)) {
           const token = streamReaders[type](this.stream);
 
+          // Epom fork: a comment whose --> has not been written yet waits for it; falling through read "<!--" as a
+          // start tag and its content as markup.
+          if (!token && type === 'comment') {
+            return null;
+          }
+
           if (token) {
+            // Epom fork: not only script and style: a textarea, noscript or iframe whose end tag has not been
+            // written yet waits for it too, or its content was parsed as markup.
             if (token.type === 'startTag' &&
-                (/script|style/i).test(token.tagName)) {
+                (/^(script|style|noscript|iframe|textarea)$/i).test(token.tagName)) {
               return null;
             } else {
               token.text = this.stream.substr(0, token.length);
@@ -183,11 +181,3 @@ HtmlParser.escapeAttributes = attrs => {
 
   return escapedAttrs;
 };
-
-HtmlParser.supports = supports;
-
-for (let key in supports) {
-  if (Object.prototype.hasOwnProperty.call(supports, key)) {
-    HtmlParser.browserHasFlaw = HtmlParser.browserHasFlaw || (!supports[key]) && key;
-  }
-}

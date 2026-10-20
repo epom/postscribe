@@ -160,6 +160,108 @@ describe('epom fork', () => {
     });
   });
 
+  describe('a double quote inside a single-quoted attribute value (#9)', () => {
+    it('keeps the value, so JSON in a data attribute survives', async() => {
+      const div = await write(`<div data-cfg='{"slot":"top","size":[300,250]}'>x</div>`);
+      expect(div.firstChild.getAttribute('data-cfg')).to.be('{"slot":"top","size":[300,250]}');
+      expect(div.firstChild.attributes.length).to.be(1);
+    });
+  });
+
+  // A script that writes `pieces` one document.write call after another, as real tags do.
+  function inPieces(...pieces) {
+    return `<script>${pieces.map(p => `document.write(${JSON.stringify(p).replace(/<\//g, '<\\/')});`).join('')}</script>`;
+  }
+
+  describe('attribute names with a colon or other non-word characters (#10)', () => {
+    it('keeps xlink:href and xmlns:xlink whole', async() => {
+      const div = await write('<svg xmlns:xlink="http://www.w3.org/1999/xlink"><use xlink:href="#a"></use></svg>');
+      const use = div.querySelector('use');
+      expect(use.getAttribute('xlink:href')).to.be('#a');
+      expect(div.firstChild.getAttribute('xmlns:xlink')).to.be('http://www.w3.org/1999/xlink');
+    });
+
+    it('keeps framework-style names', async() => {
+      const div = await write('<button @click="go()" :class="c" x-on:keyup.enter="k()">b</button>');
+      const b = div.firstChild;
+      expect([b.getAttribute('@click'), b.getAttribute(':class'), b.getAttribute('x-on:keyup.enter')]).to.eql(['go()', 'c', 'k()']);
+    });
+  });
+
+  describe('a repeated attribute (#11)', () => {
+    it('keeps the first value, as the browser does', async() => {
+      const div = await write('<div title="first" title="second">x</div>');
+      expect(div.firstChild.getAttribute('title')).to.be('first');
+    });
+  });
+
+  describe('a write ending inside a quoted value (#12)', () => {
+    it('waits for the rest of the tag instead of ending it at a > in the value', async() => {
+      const div = await write(inPieces('<div title="a >', ' b">x</div>'));
+      expect(div.querySelector('div').getAttribute('title')).to.be('a > b');
+      expect(div.querySelector('div').textContent).to.be('x');
+    });
+  });
+
+  describe('a textarea, noscript or iframe split across writes (#13)', () => {
+    it('keeps the textarea content as text', async() => {
+      const div = await write(inPieces('<textarea><b>not', ' bold</b></textarea>'));
+      expect(div.querySelector('textarea').value).to.be('<b>not bold</b>');
+    });
+
+    it('still writes one left unterminated at the end of the stream', async() => {
+      const div = await write('<p>a</p><textarea>open');
+      expect(div.querySelector('textarea').value).to.be('open');
+    });
+  });
+
+  describe('a comment split across writes (#14)', () => {
+    it('stays a comment', async() => {
+      const div = await write(inPieces('<', '!-- ', '<div>n', 'ot a div</div', '> -->x'));
+      const comments = Array.from(div.childNodes).filter(n => n.nodeType === 8).map(n => n.data);
+      expect(comments).to.eql([' <div>not a div</div> ']);
+      expect(div.querySelector('div')).to.be(null);
+    });
+  });
+
+  describe('<?xml ?> and <![CDATA[ ]]> (#15)', () => {
+    it('are kept as comments, as the browser does, while a doctype is dropped', async() => {
+      const div = await write('<!DOCTYPE html><?xml version="1.0"?><![CDATA[x]]><p>p</p>');
+      const comments = Array.from(div.childNodes).filter(n => n.nodeType === 8).map(n => n.data);
+      expect(comments).to.eql(['?xml version="1.0"?', '[CDATA[x]]']);
+    });
+  });
+
+  describe('a template written in many small pieces (#16)', () => {
+    it('comes out whole, without doubled tags', async() => {
+      const html = '<template id="t16"><p>inside</p><table><tr><td>x</td></tr></table></template><i>after</i>';
+      const div = await write(inPieces(...html.split('')));
+      expect(document.getElementById('t16').innerHTML).to.be('<p>inside</p><table><tbody><tr><td>x</td></tr></tbody></table>');
+      expect(div.querySelectorAll('p').length).to.be(0);
+      expect(div.querySelector('i').textContent).to.be('after');
+    });
+  });
+
+  describe('CR LF line endings (#17)', () => {
+    it('become LF in script and style text, as in the browser', async() => {
+      await write('<style id="s17">\r\n.x{}\r\n</style><script id="j17">\r\nwindow.__crlf = 1;\r\n</script>');
+      expect(document.getElementById('s17').textContent).to.be('\n.x{}\n');
+      expect(document.getElementById('j17').text).to.be('\nwindow.__crlf = 1;\n');
+    });
+
+    it('give one newline when the CR and the LF arrive in different writes', async() => {
+      const div = await write(inPieces('<p>a\r', '\nb</p>'));
+      expect(div.querySelector('p').textContent).to.be('a\nb');
+    });
+  });
+
+  describe('style type (#18)', () => {
+    it('is not added', async() => {
+      await write('<style id="s18">.x{}</style>');
+      expect(document.getElementById('s18').hasAttribute('type')).to.be(false);
+    });
+  });
+
   describe('nonce option (#6, krux/postscribe#512)', () => {
     it('puts the nonce on the scripts and styles it creates', async() => {
       await write('<style id="n6s">#n6 { color: red; }</style>' +

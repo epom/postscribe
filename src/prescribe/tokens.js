@@ -1,6 +1,24 @@
 import {escapeQuotes} from './utils.js';
 
 /**
+ * Epom fork: an attribute value, quoted for re-parsing. A bare double quote can only have come from a single-quoted
+ * value, so that one goes back in single quotes (or as &quot; when it holds a single quote too): escapeQuotes'
+ * backslash is JavaScript, not HTML, and turned data-cfg='{"a":1}' into data-cfg="{\"a\":1}", which breaks the
+ * tag. Anything else keeps the original double-quoted form, backslashes and all, so the browser reads it as it read
+ * the source.
+ *
+ * @param {string} val The attribute value as written
+ * @returns {string}
+ */
+function quoteAttr(val) {
+  const value = String(val);
+  if (!(/(^|[^\\])"/).test(value)) {
+    return `"${escapeQuotes(value)}"`;
+  }
+  return value.indexOf("'") === -1 ? `'${value}'` : `"${value.replace(/"/g, '&quot;')}"`;
+}
+
+/**
  * Token is a base class for all token types parsed.  Note we don't actually
  * use intheritance due to IE8's non-existent ES5 support.
  */
@@ -101,7 +119,7 @@ export class TagToken {
         const val = tok.attrs[key];
         if (typeof tok.booleanAttrs === 'undefined' ||
             typeof tok.booleanAttrs[key] === 'undefined') {
-          str += `="${escapeQuotes(val)}"`;
+          str += `=${quoteAttr(val)}`;
         }
       }
     }
