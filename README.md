@@ -32,7 +32,7 @@ and ran them for years on The New York Times, The Wall Street Journal, NBCUniver
 ([AUTHORS](AUTHORS), [CONTRIBUTORS](CONTRIBUTORS)). The 3.x line is maintained at [Epom](https://epom.com) by
 [Anton Ruin](https://github.com/ruin).
 
-## What's new in 3.0
+## What's new in 3.x
 
 postscribe was written at [Krux](https://github.com/krux/postscribe). Its last release was 2.0.8 in November 2016,
 and the repository was archived in 2024, with its open bugs still open and a build that no longer ran.
@@ -43,8 +43,13 @@ we brought it back to life as 3.0:
 - **The tokenizer lives here too.** [prescribe](https://github.com/krux/prescribe), the HTML tokenizer postscribe
   depends on, is archived as well; it is now `src/prescribe/`, with its own test suite.
 - **It builds and tests again.** rollup, ESLint and Web Test Runner on Playwright replace gulp, webpack 1, Babel 6,
-  Karma and PhantomJS. The original suites run in full in headless Chromium on every push, including the specs
-  upstream had skipped.
+  Karma and PhantomJS. The original suites run in full in Chromium, Firefox and WebKit on every push, including the
+  specs upstream had skipped.
+- **The browser is the reference.** A differential suite writes some 130 kinds of tricky markup (quoting, entities,
+  tables, templates, comments, nested and remote scripts, real-world ad tags) through both the browser's own
+  `document.write` and postscribe, whole and cut into pieces at random points, and requires the same DOM. That is how
+  most of the fixes below were found.
+- **TypeScript types and an ES module build** ship with it.
 
 | Fixed | Upstream report |
 |---|---|
@@ -56,33 +61,44 @@ we brought it back to life as 3.0:
 | No way to pass a CSP nonce: added the `nonce` option ([#6](https://github.com/epom/postscribe/issues/6)) | [krux#512](https://github.com/krux/postscribe/pull/512) |
 | A stray `</embed>`, `</img>` or `</br>` closed the enclosing element ([#7](https://github.com/epom/postscribe/issues/7)) | upstream's own skipped test |
 | `cancel()` on a running stream threw and left every later stream stuck ([#8](https://github.com/epom/postscribe/issues/8)) | [krux#478](https://github.com/krux/postscribe/issues/478) |
+| JSON in a single-quoted attribute (`data-cfg='{"a":1}'`) came out corrupted ([#9](https://github.com/epom/postscribe/issues/9)) | |
+| Attribute names with a colon (`xlink:href`, `xmlns:xlink`, `@click`) were mangled ([#10](https://github.com/epom/postscribe/issues/10)) | |
+| A repeated attribute kept the last value instead of the first ([#11](https://github.com/epom/postscribe/issues/11)) | |
+| A write ending inside a quoted value cut the tag at a `>` in it ([#12](https://github.com/epom/postscribe/issues/12)) | |
+| A `textarea`, `noscript` or `iframe` split across writes had its content parsed as markup ([#13](https://github.com/epom/postscribe/issues/13)) | |
+| A comment split across writes was parsed as markup ([#14](https://github.com/epom/postscribe/issues/14)) | |
+| `<?xml ?>` and `<![CDATA[ ]]>` were dropped instead of kept as comments ([#15](https://github.com/epom/postscribe/issues/15)) | |
+| A template written in many small pieces doubled its tags ([#16](https://github.com/epom/postscribe/issues/16)) | |
+| CR LF line endings were kept in script and style text ([#17](https://github.com/epom/postscribe/issues/17)) | |
+| Every style got `type="text/css"` added ([#18](https://github.com/epom/postscribe/issues/18)) | |
 
 **Upgrading from 2.0.8:** the API is the same; replace the file or the dependency. Two things to know: the build is
-ES2015+ (transpile it if you still ship ES5), and the fixes above change output where 2.0.8 was wrong. The full list is
-in [CHANGELOG.md](CHANGELOG.md).
+ES2015+ for current browsers (Internet Explorer is not supported), and the fixes above change output where 2.0.8 was
+wrong. The full list is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Installation
 
 From a CDN, which defines a global `postscribe`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v3.0.1/dist/postscribe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v3.1.0/dist/postscribe.min.js"></script>
 ```
 
 From npm, straight from this repository:
 
 ```console
-npm install github:epom/postscribe#v3.0.1
+npm install github:epom/postscribe#v3.1.0
 ```
 
 ```javascript
-import postscribe from 'postscribe';               // ES modules
+import postscribe from 'postscribe';               // ES modules (dist/postscribe.mjs)
 const postscribe = require('postscribe');          // CommonJS
 define(['postscribe'], function (postscribe) {});  // AMD
 ```
 
-Or copy [`dist/postscribe.js`](dist/postscribe.js) or [`dist/postscribe.min.js`](dist/postscribe.min.js) into your
-project: UMD builds with the tokenizer included and no dependencies.
+TypeScript types come with the package. Or copy [`dist/postscribe.js`](dist/postscribe.js) or
+[`dist/postscribe.min.js`](dist/postscribe.min.js) into your project: UMD builds with the tokenizer included and no
+dependencies.
 
 ## Usage
 
@@ -182,8 +198,12 @@ export class AdComponent implements AfterViewInit, OnDestroy {
 **Can two tag writers run on one page?** No. postscribe overrides `document.write` while it works; another library
 doing the same at the same time will interfere.
 
-**Which browsers?** Current Chrome, Edge, Firefox and Safari, desktop and mobile. The build is ES2015+; transpile it
-if you still need ES5.
+**Which browsers?** Chrome 80+, Edge 80+, Firefox 78+ and Safari 14+, desktop and mobile; CI runs every suite in
+current Chromium, Firefox and WebKit. Internet Explorer is not supported (3.1 removed the code that was left for it).
+
+**How exact is it?** Writing in pieces that the browser would put together the same way gives the same DOM, checked
+against the browser itself. Two known differences: text placed directly inside a `<table>` by a later write lands after
+the table instead of before it, and a `<noscript>` is written empty (with scripting on, its content never shows).
 
 **Why is `done` not called after `cancel()`?** A cancelled stream fires none of its callbacks, so a component that
 cancels on unmount never hears from it again.
@@ -198,8 +218,9 @@ a spec under [`test/epom/`](test/epom) that fails without it. See [CONTRIBUTING.
 npm ci
 npx playwright install chromium
 npm run build    # rollup: dist/postscribe.js and dist/postscribe.min.js from src/
-npm test         # the original suites and ours, in headless Chromium
-npm run verify   # lint, build, fail if the committed dist/ is stale, tests; CI runs this on every push
+npm test         # the original suites and ours (BROWSERS=chromium,firefox,webkit for all three)
+npm run test:differential   # postscribe against the browser's own document.write over the whole corpus
+npm run verify   # lint and types, build, fail if the committed dist/ is stale, tests; CI runs this on every push
 ```
 
 `dist/` is committed so the library can be used straight from the repository.

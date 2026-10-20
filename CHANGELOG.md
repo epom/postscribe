@@ -2,6 +2,37 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 3.1.0 - 2026-10-21
+### Fixed
+Found by differential testing: the same markup written through the browser's own `document.write` and through
+postscribe, whole and in pieces, must give the same DOM.
+- A double quote inside a single-quoted attribute value (`data-cfg='{"a":1}'`) no longer corrupts it.
+  [#9](https://github.com/epom/postscribe/issues/9)
+- Attribute names may hold any character HTML allows (`xlink:href`, `xmlns:xlink`, `@click`, `:class`).
+  [#10](https://github.com/epom/postscribe/issues/10)
+- Of a repeated attribute the first value is kept, as in the browser. [#11](https://github.com/epom/postscribe/issues/11)
+- A write that ends inside a quoted value waits for the rest of the tag instead of ending it at a `>` in the value.
+  [#12](https://github.com/epom/postscribe/issues/12)
+- A `textarea`, `noscript` or `iframe` split across writes keeps its content as text; one left unterminated is still
+  written. [#13](https://github.com/epom/postscribe/issues/13)
+- A comment split across writes stays a comment. [#14](https://github.com/epom/postscribe/issues/14)
+- `<?xml ?>` and `<![CDATA[ ]]>` become comments, as in the browser; a doctype is dropped.
+  [#15](https://github.com/epom/postscribe/issues/15)
+- A template written in many small pieces no longer doubles its tags. [#16](https://github.com/epom/postscribe/issues/16)
+- CR LF and lone CR become LF, also in script and style text and when the CR and the LF arrive in different writes.
+  [#17](https://github.com/epom/postscribe/issues/17)
+- Styles no longer get `type="text/css"` added. [#18](https://github.com/epom/postscribe/issues/18)
+
+### Added
+- TypeScript types (`postscribe.d.ts`) and an ES module build (`dist/postscribe.mjs`), with `exports` in package.json.
+- The suites run in Chromium, Firefox and WebKit in CI.
+- `npm run test:differential`: some 130 kinds of markup, whole and cut into pieces, compared against the browser.
+
+### Removed
+- Internet Explorer support: `parentWindow`, `styleSheet.cssText`, `onreadystatechange`, the IE8 attribute coercion, the
+  VBScript spec, and prescribe's feature tests of 2010s browsers (`autoFix` now turns its fixes on directly). Supported:
+  Chrome 80+, Edge 80+, Firefox 78+, Safari 14+.
+
 ## 3.0.1 - 2026-10-21
 ### Changed
 - The build banner and `package.json` name Epom as the author and maintainer of 3.x; the original authors and Krux's
