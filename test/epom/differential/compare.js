@@ -32,32 +32,36 @@ export function serialize(parent) {
   return out;
 }
 
-const DONE = '<script data-diff-skip src="remote/write-done-marker.js"></script>';
-
-/** Markup written by the browser's document.write into a fresh iframe; resolves with the serialized body. */
+/**
+ * Markup written by the browser's document.write into a fresh iframe; resolves with the serialized body once the
+ * document is complete (its scripts run and loaded). Not a marker element written after the markup: an unterminated
+ * comment or tag at its end would swallow it.
+ */
 function nativeWrite(html) {
   const frame = document.createElement('iframe');
   document.body.appendChild(frame);
   const doc = frame.contentDocument;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('native write never finished')), 4000);
-    const poll = setInterval(() => {
-      const marker = doc.getElementById('done-marker');
-      if (marker) {
+    let poll = null;
+    const timer = setTimeout(() => {
+      clearInterval(poll);
+      frame.remove();
+      reject(new Error('native write never finished'));
+    }, 4000);
+    doc.open();
+    doc.write('<!DOCTYPE html><html><head></head><body>');
+    doc.write(html);
+    doc.close();
+    poll = setInterval(() => {
+      if (doc.readyState === 'complete') {
         clearInterval(poll);
         clearTimeout(timer);
-        marker.remove();
         doc.body.normalize();
         const result = serialize(doc.body);
         frame.remove();
         resolve(result);
       }
     }, 2);
-    doc.open();
-    doc.write('<!DOCTYPE html><html><head></head><body>');
-    doc.write(html);
-    doc.write(DONE);
-    doc.close();
   });
 }
 
@@ -103,13 +107,23 @@ export function inPieces(html, cuts) {
   return `<script>${js}</script>`;
 }
 
-/** Deterministic pseudo-random cut points, so a failure reproduces. */
+/**
+ * Deterministic pseudo-random cut points, so a failure reproduces. mulberry32 in 32-bit integer arithmetic: an LCG in
+ * floating point lost precision past 2^53, fell into a short cycle and never found enough distinct cuts.
+ */
 export function cutsFor(html, seed, count) {
-  let x = seed * 2654435761 % 4294967296 || 1;
+  let state = seed >>> 0;
+  const next = () => {
+    state = (state + 0x6D2B79F5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
   const cuts = new Set();
-  while (cuts.size < Math.min(count, html.length - 1)) {
-    x = (x * 1103515245 + 12345) % 2147483648;
-    cuts.add(1 + (x % (html.length - 1)));
+  const want = Math.min(count, html.length - 1);
+  for (let tries = 0; cuts.size < want && tries < 1000; tries++) {
+    cuts.add(1 + Math.floor(next() * (html.length - 1)));
   }
   return [...cuts];
 }

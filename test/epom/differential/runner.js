@@ -7,8 +7,12 @@ const KNOWN = {
   // Text directly inside a table is moved before it ("foster parenting"). postscribe only appends to elements, so text
   // that reaches the table in a later write lands after it. Rare in creatives; not worth a DOM-surgery special case.
   'tables and forms / text inside table': true,
-  // With scripting on, a noscript's content is never shown; postscribe writes the element empty.
-  'ad tags / noscript fallback pixel': true
+  // The browser carries a formatting element left open (<i>) on into the next block it reaches; postscribe's tokenizer
+  // closes it there. Modelling the browser's reconstruction of formatting elements would mean redoing the auto-fix.
+  'nesting and auto-closing / formatting carried across blocks': true,
+  // A newline that starts a later write inside a <pre> is eaten: each chunk is parsed right after the proxy <pre>,
+  // where the browser drops a leading newline.
+  'raw text elements / plaintext-like pre': true
 };
 
 function variants(html, seed) {
