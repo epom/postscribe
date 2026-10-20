@@ -177,7 +177,8 @@ npm run verify   # all of the above, and fails if the committed dist/ is not the
 ## Credits
 
 postscribe was created by Derek Brans and developed at Krux, with many contributors ([AUTHORS](AUTHORS),
-[CONTRIBUTORS](CONTRIBUTORS)). This fork is maintained by [Epom](https://epom.com).
+[CONTRIBUTORS](CONTRIBUTORS)). The 3.0 fork is maintained at [Epom](https://epom.com) by
+[Anton Ruin](https://github.com/ruin).
 
 ## License
 
