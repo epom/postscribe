@@ -887,6 +887,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	    var el = this.doc.createElement(tok.tagName);
 	
 	    el.setAttribute('type', tok.type);
+	    // Epom fork: the page's CSP nonce, when given.
+	    if (this.options.nonce) {
+	      el.nonce = this.options.nonce;
+	    }
 	
 	    // Set attributes
 	    utils.eachKey(tok.attrs, function (name, value) {
@@ -1013,6 +1017,11 @@ return /******/ (function(modules) { // webpackBootstrap
 	    utils.eachKey(tok.attrs, function (name, value) {
 	      el.setAttribute(name, _this._decodeEntities(value));
 	    });
+	
+	    // Epom fork: the page's CSP nonce, when given.
+	    if (this.options.nonce) {
+	      el.nonce = this.options.nonce;
+	    }
 	
 	    // Set content
 	    if (tok.content) {

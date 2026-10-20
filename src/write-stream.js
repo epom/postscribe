@@ -507,6 +507,10 @@ export default class WriteStream {
     const el = this.doc.createElement(tok.tagName);
 
     el.setAttribute('type', tok.type);
+    // Epom fork: the page's CSP nonce, when given.
+    if (this.options.nonce) {
+      el.nonce = this.options.nonce;
+    }
 
     // Set attributes
     utils.eachKey(tok.attrs, (name, value) => {
@@ -621,6 +625,11 @@ export default class WriteStream {
     utils.eachKey(tok.attrs, (name, value) => {
       el.setAttribute(name, this._decodeEntities(value));
     });
+
+    // Epom fork: the page's CSP nonce, when given.
+    if (this.options.nonce) {
+      el.nonce = this.options.nonce;
+    }
 
     // Set content
     if (tok.content) {
