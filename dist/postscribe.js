@@ -399,6 +399,14 @@ return /******/ (function(modules) { // webpackBootstrap
 	  }
 	}
 
+	// Epom fork: the script types a browser runs (HTML spec "JavaScript MIME type essence match", plus module).
+	var JS_TYPE = /^(?:module|(?:application|text)\/(?:x-)?(?:ecmascript|javascript)|text\/javascript1\.[0-5]|text\/(?:jscript|livescript))$/i;
+	
+	function isJavaScript(tok) {
+	  var type = tok.attrs.type || tok.attrs.TYPE;
+	  return !type || !type.trim() || JS_TYPE.test(type.split(';')[0].trim());
+	}
+	
 	// Epom fork: <template> start/end tag tokens.
 	function isTemplateStart(tok) {
 	  return tok.type === 'startTag' && !tok.unary && /^template$/i.test(tok.tagName);
@@ -775,6 +783,9 @@ return /******/ (function(modules) { // webpackBootstrap
 	    }
 	
 	    tok.src = tok.attrs.src || tok.attrs.SRC;
+	    // Epom fork: a script the browser will not run (type="text/plain"...) is never loaded either, so there is
+	    // no load event to wait for: write it like an inline one.
+	    tok.inert = !isJavaScript(tok);
 	
 	    tok = this.options.beforeWriteToken(tok);
 	    if (!tok) {
@@ -782,7 +793,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	      return;
 	    }
 	
-	    if (tok.src && this.scriptStack.length) {
+	    if (tok.src && !tok.inert && this.scriptStack.length) {
 	      // Defer this script until scriptStack is empty.
 	      // Assumption 1: This script will not start executing until
 	      // scriptStack is empty.
@@ -950,15 +961,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (tok.src) {
 	      // Fix for attribute "SRC" (capitalized). IE does not recognize it.
 	      el.src = tok.src;
-	      this._scriptLoadHandler(el, !asyncRelease ? function () {
-	        done();
-	        afterAsync();
-	      } : afterAsync);
+	      if (!tok.inert) {
+	        this._scriptLoadHandler(el, !asyncRelease ? function () {
+	          done();
+	          afterAsync();
+	        } : afterAsync);
+	      }
 	    }
 	
 	    try {
 	      this._insertCursor(el, PROXY_SCRIPT);
-	      if (!el.src || asyncRelease) {
+	      if (!el.src || asyncRelease || tok.inert) {
 	        done();
 	      }
 	    } catch (e) {

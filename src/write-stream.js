@@ -58,6 +58,14 @@ function setData(el, name, value = null) {
   }
 }
 
+// Epom fork: the script types a browser runs (HTML spec "JavaScript MIME type essence match", plus module).
+const JS_TYPE = /^(?:module|(?:application|text)\/(?:x-)?(?:ecmascript|javascript)|text\/javascript1\.[0-5]|text\/(?:jscript|livescript))$/i;
+
+function isJavaScript(tok) {
+  const type = tok.attrs.type || tok.attrs.TYPE;
+  return !type || !type.trim() || JS_TYPE.test(type.split(';')[0].trim());
+}
+
 // Epom fork: <template> start/end tag tokens.
 function isTemplateStart(tok) {
   return tok.type === 'startTag' && !tok.unary && (/^template$/i).test(tok.tagName);
@@ -409,6 +417,9 @@ export default class WriteStream {
     }
 
     tok.src = tok.attrs.src || tok.attrs.SRC;
+    // Epom fork: a script the browser will not run (type="text/plain"...) is never loaded either, so there is
+    // no load event to wait for: write it like an inline one.
+    tok.inert = !isJavaScript(tok);
 
     tok = this.options.beforeWriteToken(tok);
     if (!tok) {
@@ -416,7 +427,7 @@ export default class WriteStream {
       return;
     }
 
-    if (tok.src && this.scriptStack.length) {
+    if (tok.src && !tok.inert && this.scriptStack.length) {
       // Defer this script until scriptStack is empty.
       // Assumption 1: This script will not start executing until
       // scriptStack is empty.
@@ -570,15 +581,17 @@ export default class WriteStream {
     if (tok.src) {
       // Fix for attribute "SRC" (capitalized). IE does not recognize it.
       el.src = tok.src;
-      this._scriptLoadHandler(el, !asyncRelease ? () => {
-        done();
-        afterAsync();
-      } : afterAsync);
+      if (!tok.inert) {
+        this._scriptLoadHandler(el, !asyncRelease ? () => {
+          done();
+          afterAsync();
+        } : afterAsync);
+      }
     }
 
     try {
       this._insertCursor(el, PROXY_SCRIPT);
-      if (!el.src || asyncRelease) {
+      if (!el.src || asyncRelease || tok.inert) {
         done();
       }
     } catch (e) {
