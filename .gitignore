@@ -14,3 +14,6 @@ npm-*.log
 # Generated files (dist/ is committed: this fork has no working build, see README)
 build/
 
+
+# Real creatives for local differential runs; never committed
+test/epom/differential/local/
