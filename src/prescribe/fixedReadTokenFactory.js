@@ -13,6 +13,13 @@ const EMPTY = /^(AREA|BASE|BASEFONT|BR|COL|FRAME|HR|IMG|INPUT|ISINDEX|LINK|META|
 const CLOSESELF = /^(COLGROUP|DD|DT|LI|OPTIONS|P|TD|TFOOT|TH|THEAD|TR)$/i;
 
 /**
+ * Epom fork: HTML's formatting elements, which the browser reopens after an end tag closed them out of order.
+ *
+ * @type {RegExp}
+ */
+const FORMATTING = /^(A|B|BIG|CODE|EM|FONT|I|NOBR|S|SMALL|STRIKE|STRONG|TT|U)$/i;
+
+/**
  * Corrects a token.
  *
  * @param {Token} tok The token to correct
@@ -73,7 +80,7 @@ function newStack() {
 
   stack.containsTagName = function(tagName) {
     for (let i = 0, tok; (tok = this[i]); i++) {
-      if (tok.tagName === tagName) {
+      if (tok.tagName.toUpperCase() === tagName.toUpperCase()) {
         return true;
       }
     }
@@ -129,16 +136,36 @@ export default function fixedReadTokenFactory(parser, options, readTokenImpl) {
       }
 
       const last = stack.last();
-      if (last) {
-        if (options.tagSoupFix && !stack.lastTagNameEq(tok.tagName)) {
-          // cleanup tag soup
-          closeLast(parser, stack);
-        } else {
-          stack.pop();
-        }
-      } else if (options.tagSoupFix) {
-        // cleanup tag soup part 2: skip this token
+      if (last && options.tagSoupFix && !stack.lastTagNameEq(tok.tagName)) {
+        // Epom fork: as the browser does. An end tag of nothing open is dropped (</p> makes an empty <p>), not taken
+        // to close whatever is open. One that skips open elements closes them; when it is itself a formatting end tag
+        // (<b><i>x</b>y), the formatting elements it skipped are opened again after it, so the text that follows keeps
+        // them, as the browser's adoption agency does.
         readTokenImpl();
+        if (!stack.containsTagName(tok.tagName)) {
+          if ((/^p$/i).test(tok.tagName)) {
+            parser.prepend('<p></p>');
+          }
+        } else {
+          let closes = '';
+          let reopens = '';
+          for (let i = stack.length - 1; !stack[i].tagName.match(new RegExp(`^${tok.tagName}$`, 'i')); i--) {
+            closes += `</${stack[i].tagName}>`;
+            if (FORMATTING.test(tok.tagName) && FORMATTING.test(stack[i].tagName)) {
+              reopens = stack[i].toString() + reopens;
+            }
+          }
+          parser.prepend(`${closes}</${tok.tagName}>${reopens}`);
+        }
+        prepareNextToken();
+      } else if (last) {
+        stack.pop();
+      } else if (options.tagSoupFix) {
+        // cleanup tag soup part 2: skip this token (Epom fork: a stray </p> makes an empty <p>, as in the browser)
+        readTokenImpl();
+        if ((/^p$/i).test(tok.tagName)) {
+          parser.prepend('<p></p>');
+        }
         prepareNextToken();
       }
     }

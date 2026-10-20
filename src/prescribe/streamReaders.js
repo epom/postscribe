@@ -36,6 +36,17 @@ export function comment(stream) {
  */
 export function chars(stream) {
   const index = stream.indexOf('<');
+  if (index === -1) {
+    // Epom fork: text that ends in what may be the start of a character reference (&cop) waits for the rest of it,
+    // which the next write may bring (y;), as the browser waits: written now, "&cop" would stay literal.
+    const reference = stream.search(/&[#\w]*$/);
+    if (reference === 0) {
+      return undefined;
+    }
+    if (reference > 0) {
+      return new CharsToken(reference);
+    }
+  }
   return new CharsToken(index >= 0 ? index : stream.length);
 }
 

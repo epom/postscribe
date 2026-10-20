@@ -71,6 +71,10 @@ we brought it back to life as 3.0:
 | A template written in many small pieces doubled its tags ([#16](https://github.com/epom/postscribe/issues/16)) | |
 | CR LF line endings were kept in script and style text ([#17](https://github.com/epom/postscribe/issues/17)) | |
 | Every style got `type="text/css"` added ([#18](https://github.com/epom/postscribe/issues/18)) | |
+| A character reference split across writes stayed literal ([#19](https://github.com/epom/postscribe/issues/19)) | |
+| `xmp`, `noembed`, `noframes`, `title` content was parsed as markup ([#20](https://github.com/epom/postscribe/issues/20)) | |
+| `<noscript>` was written empty ([#21](https://github.com/epom/postscribe/issues/21)) | |
+| A stray end tag closed its parent; misnested formatting lost its style ([#22](https://github.com/epom/postscribe/issues/22)) | |
 
 **Upgrading from 2.0.8:** the API is the same; replace the file or the dependency. Two things to know: the build is
 ES2015+ for current browsers (Internet Explorer is not supported), and the fixes above change output where 2.0.8 was
@@ -201,9 +205,11 @@ doing the same at the same time will interfere.
 **Which browsers?** Chrome 80+, Edge 80+, Firefox 78+ and Safari 14+, desktop and mobile; CI runs every suite in
 current Chromium, Firefox and WebKit. Internet Explorer is not supported (3.1 removed the code that was left for it).
 
-**How exact is it?** Writing in pieces that the browser would put together the same way gives the same DOM, checked
-against the browser itself. Two known differences: text placed directly inside a `<table>` by a later write lands after
-the table instead of before it, and a `<noscript>` is written empty (with scripting on, its content never shows).
+**How exact is it?** The differential suite checks it against the browser itself, whole and in pieces, in Chromium,
+Firefox and WebKit. Three known differences, all rare in creatives: text placed directly inside a `<table>` by a later
+write lands after the table instead of before it; a formatting element left open (`<div><i></div><div>x`) is not
+carried on into the next block, as the browser does; and a newline that starts a later write inside a `<pre>` is
+dropped.
 
 **Why is `done` not called after `cancel()`?** A cancelled stream fires none of its callbacks, so a component that
 cancels on unmount never hears from it again.

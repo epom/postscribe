@@ -22,6 +22,14 @@ postscribe, whole and in pieces, must give the same DOM.
 - CR LF and lone CR become LF, also in script and style text and when the CR and the LF arrive in different writes.
   [#17](https://github.com/epom/postscribe/issues/17)
 - Styles no longer get `type="text/css"` added. [#18](https://github.com/epom/postscribe/issues/18)
+- A character reference split across writes (`&cop` + `y;`) is completed instead of left literal.
+  [#19](https://github.com/epom/postscribe/issues/19)
+- `xmp`, `noembed`, `noframes` and `title` keep their content as raw text. [#20](https://github.com/epom/postscribe/issues/20)
+- A `noscript` is written with its content; it was taken for a script ("noscript" contains "script") and lost.
+  [#21](https://github.com/epom/postscribe/issues/21)
+- Stray and misnested end tags are fixed as the browser fixes them: an end tag of nothing open is dropped instead of
+  closing the parent, formatting elements closed out of order are reopened (`<b><i>x</b>y</i>`), and a stray `</p>`
+  makes an empty `<p>`. [#22](https://github.com/epom/postscribe/issues/22)
 
 ### Added
 - TypeScript types (`postscribe.d.ts`) and an ES module build (`dist/postscribe.mjs`), with `exports` in package.json.

@@ -357,7 +357,7 @@ export default class WriteStream {
     const chunk = this._buildChunk(tokens);
 
     if (!chunk.actual) {
-      // e.g., no tokens, or a noscript that got ignored
+      // e.g., no tokens
       return null;
     }
 
@@ -409,8 +409,9 @@ export default class WriteStream {
       raw.push(tokenRaw);
 
       if (tok.attrs) { // tok.attrs <==> startTag or atomicTag or cursor
-        // Ignore noscript tags. They are atomic, so we don't have to worry about children.
-        if (!(/^noscript$/i).test(tok.tagName)) {
+        // Epom fork: a noscript is written with its content (inert text with scripting on, as in the browser); it was
+        // dropped here, and before that taken for a script, since "noscript" contains "script".
+        {
           const id = nextId++;
 
           // Actual: inject id attribute. Epom fork: as one more attribute of the token, not before the first '>',

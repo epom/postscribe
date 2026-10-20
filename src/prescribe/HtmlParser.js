@@ -13,7 +13,8 @@ import {escapeQuotes} from './utils.js';
 const detect = {
   comment: /^<!--/,
   endTag: /^<\//,
-  atomicTag: /^<\s*(script|style|noscript|iframe|textarea)[\s\/>]/i,
+  // Epom fork: xmp, noembed, noframes and title hold raw text too, as in the browser
+  atomicTag: /^<\s*(script|style|noscript|iframe|textarea|xmp|noembed|noframes|title)[\s\/>]/i,
   startTag: /^</,
   chars: /^[^<]/
 };
@@ -98,7 +99,7 @@ export default class HtmlParser {
             // Epom fork: not only script and style: a textarea, noscript or iframe whose end tag has not been
             // written yet waits for it too, or its content was parsed as markup.
             if (token.type === 'startTag' &&
-                (/^(script|style|noscript|iframe|textarea)$/i).test(token.tagName)) {
+                (/^(script|style|noscript|iframe|textarea|xmp|noembed|noframes|title)$/i).test(token.tagName)) {
               return null;
             } else {
               token.text = this.stream.substr(0, token.length);

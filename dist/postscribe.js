@@ -1,7 +1,7 @@
 /**
  * @file postscribe
  * @description Asynchronously write javascript, even with document.write.
- * @version v3.0.1
+ * @version v3.1.0
  * @see {@link https://github.com/epom/postscribe}
  * @license MIT
  * @author Epom (https://epom.com), maintained by Anton Ruin
@@ -272,6 +272,17 @@
    */
   function chars(stream) {
     const index = stream.indexOf('<');
+    if (index === -1) {
+      // Epom fork: text that ends in what may be the start of a character reference (&cop) waits for the rest of it,
+      // which the next write may bring (y;), as the browser waits: written now, "&cop" would stay literal.
+      const reference = stream.search(/&[#\w]*$/);
+      if (reference === 0) {
+        return undefined;
+      }
+      if (reference > 0) {
+        return new CharsToken(reference);
+      }
+    }
     return new CharsToken(index >= 0 ? index : stream.length);
   }
 
@@ -401,6 +412,13 @@
   const CLOSESELF = /^(COLGROUP|DD|DT|LI|OPTIONS|P|TD|TFOOT|TH|THEAD|TR)$/i;
 
   /**
+   * Epom fork: HTML's formatting elements, which the browser reopens after an end tag closed them out of order.
+   *
+   * @type {RegExp}
+   */
+  const FORMATTING = /^(A|B|BIG|CODE|EM|FONT|I|NOBR|S|SMALL|STRIKE|STRONG|TT|U)$/i;
+
+  /**
    * Corrects a token.
    *
    * @param {Token} tok The token to correct
@@ -461,7 +479,7 @@
 
     stack.containsTagName = function(tagName) {
       for (let i = 0, tok; (tok = this[i]); i++) {
-        if (tok.tagName === tagName) {
+        if (tok.tagName.toUpperCase() === tagName.toUpperCase()) {
           return true;
         }
       }
@@ -517,16 +535,36 @@
         }
 
         const last = stack.last();
-        if (last) {
-          if (!stack.lastTagNameEq(tok.tagName)) {
-            // cleanup tag soup
-            closeLast(parser, stack);
-          } else {
-            stack.pop();
-          }
-        } else {
-          // cleanup tag soup part 2: skip this token
+        if (last && options.tagSoupFix && !stack.lastTagNameEq(tok.tagName)) {
+          // Epom fork: as the browser does. An end tag of nothing open is dropped (</p> makes an empty <p>), not taken
+          // to close whatever is open. One that skips open elements closes them; when it is itself a formatting end tag
+          // (<b><i>x</b>y), the formatting elements it skipped are opened again after it, so the text that follows keeps
+          // them, as the browser's adoption agency does.
           readTokenImpl();
+          if (!stack.containsTagName(tok.tagName)) {
+            if ((/^p$/i).test(tok.tagName)) {
+              parser.prepend('<p></p>');
+            }
+          } else {
+            let closes = '';
+            let reopens = '';
+            for (let i = stack.length - 1; !stack[i].tagName.match(new RegExp(`^${tok.tagName}$`, 'i')); i--) {
+              closes += `</${stack[i].tagName}>`;
+              if (FORMATTING.test(tok.tagName) && FORMATTING.test(stack[i].tagName)) {
+                reopens = stack[i].toString() + reopens;
+              }
+            }
+            parser.prepend(`${closes}</${tok.tagName}>${reopens}`);
+          }
+          prepareNextToken();
+        } else if (last) {
+          stack.pop();
+        } else {
+          // cleanup tag soup part 2: skip this token (Epom fork: a stray </p> makes an empty <p>, as in the browser)
+          readTokenImpl();
+          if ((/^p$/i).test(tok.tagName)) {
+            parser.prepend('<p></p>');
+          }
           prepareNextToken();
         }
       }
@@ -556,7 +594,8 @@
   const detect = {
     comment: /^<!--/,
     endTag: /^<\//,
-    atomicTag: /^<\s*(script|style|noscript|iframe|textarea)[\s\/>]/i,
+    // Epom fork: xmp, noembed, noframes and title hold raw text too, as in the browser
+    atomicTag: /^<\s*(script|style|noscript|iframe|textarea|xmp|noembed|noframes|title)[\s\/>]/i,
     startTag: /^</,
     chars: /^[^<]/
   };
@@ -579,7 +618,7 @@
       // Epom fork: autoFix turns both fixes on. They used to be gated on feature tests of 2010s browsers (supports.js),
       // which every current browser passes the same way, so the tests are gone.
       if (options.autoFix) {
-        const fixedTokenOptions = {};
+        const fixedTokenOptions = {tagSoupFix: true};
         this._readToken = fixedReadTokenFactory(this, fixedTokenOptions, () => this._readTokenImpl());
         this._peekToken = fixedReadTokenFactory(this, fixedTokenOptions, () => this._peekTokenImpl());
       } else {
@@ -641,7 +680,7 @@
               // Epom fork: not only script and style: a textarea, noscript or iframe whose end tag has not been
               // written yet waits for it too, or its content was parsed as markup.
               if (token.type === 'startTag' &&
-                  (/^(script|style|noscript|iframe|textarea)$/i).test(token.tagName)) {
+                  (/^(script|style|noscript|iframe|textarea|xmp|noembed|noframes|title)$/i).test(token.tagName)) {
                 return null;
               } else {
                 token.text = this.stream.substr(0, token.length);
@@ -797,7 +836,7 @@
   function isTag(tok, tag) {
     return !tok ||
       !(tok.type === 'startTag' || tok.type === 'atomicTag') ||
-      !('tagName' in tok) ? false : !!~tok.tagName.toLowerCase().indexOf(tag);
+      !('tagName' in tok) ? false : tok.tagName.toLowerCase() === tag;
   }
 
   /**
@@ -1176,7 +1215,7 @@
       const chunk = this._buildChunk(tokens);
 
       if (!chunk.actual) {
-        // e.g., no tokens, or a noscript that got ignored
+        // e.g., no tokens
         return null;
       }
 
@@ -1228,8 +1267,9 @@
         raw.push(tokenRaw);
 
         if (tok.attrs) { // tok.attrs <==> startTag or atomicTag or cursor
-          // Ignore noscript tags. They are atomic, so we don't have to worry about children.
-          if (!(/^noscript$/i).test(tok.tagName)) {
+          // Epom fork: a noscript is written with its content (inert text with scripting on, as in the browser); it was
+          // dropped here, and before that taken for a script, since "noscript" contains "script".
+          {
             const id = nextId++;
 
             // Actual: inject id attribute. Epom fork: as one more attribute of the token, not before the first '>',

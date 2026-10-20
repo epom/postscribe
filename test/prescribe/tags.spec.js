@@ -139,7 +139,9 @@ describe('HtmlParser (tags)', () => {
     }));
 
     it('fixes multiple nested mismatching tags', fixes('<div><b><i></div>foo<div>bar<i></b>bla', s => {
-      expect(s).to.equal('<div><b><i></i></b></div>foo<div>bar<i></i></div>bla');
+      // Epom fork: </b> with no <b> open is dropped now, as the browser drops it, instead of closing the <i>. Neither
+      // matches the browser here, which carries <b><i> on into the following content (formatting reconstruction).
+      expect(s).to.equal('<div><b><i></i></b></div>foo<div>bar<i>bla');
     }));
 
     it('handles tag', parsesCompletely('<div id="remote">foo</div>', s => {

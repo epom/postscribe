@@ -262,6 +262,52 @@ describe('epom fork', () => {
     });
   });
 
+  describe('a character reference split across writes (#19)', () => {
+    it('is completed by the next write, as in the browser', async() => {
+      const div = await write(inPieces('<p>&cop', 'y; &#83', '64;</p>'));
+      expect(div.querySelector('p').textContent).to.be('© €');
+    });
+
+    it('stays text when nothing completes it', async() => {
+      const div = await write('<p>a &amp b &</p><i>x &cop');
+      expect(div.querySelector('p').textContent).to.be('a & b &');
+      expect(div.querySelector('i').textContent).to.be('x &cop');
+    });
+  });
+
+  describe('xmp, noembed, noframes and title (#20)', () => {
+    it('keep their content as raw text', async() => {
+      const div = await write('<xmp><b>raw</b></xmp><noembed><i>e</i></noembed>');
+      expect(div.querySelector('xmp').textContent).to.be('<b>raw</b>');
+      expect(div.querySelector('noembed').textContent).to.be('<i>e</i>');
+      expect(div.querySelector('b')).to.be(null);
+    });
+  });
+
+  describe('noscript (#21)', () => {
+    it('is written with its content', async() => {
+      const div = await write('<noscript><img src="data:image/png,"></noscript>x');
+      expect(div.querySelector('noscript').textContent).to.be('<img src="data:image/png,">');
+    });
+  });
+
+  describe('stray and misnested end tags (#22)', () => {
+    it('drops an end tag of nothing open instead of closing the parent', async() => {
+      const div = await write('<div>a</span>b</div>');
+      expect(div.innerHTML.replace(/ data-ps-id="?\d+"?/g, '')).to.be('<div>ab</div>');
+    });
+
+    it('reopens a formatting element closed out of order', async() => {
+      const div = await write('<b><i>x</b>y</i>');
+      expect(div.innerHTML.replace(/ data-ps-id="?\d+"?/g, '')).to.be('<b><i>x</i></b><i>y</i>');
+    });
+
+    it('makes an empty p of a stray </p>', async() => {
+      const div = await write('a</p>b');
+      expect(div.innerHTML.replace(/ data-ps-id="?\d+"?/g, '')).to.be('a<p></p>b');
+    });
+  });
+
   describe('nonce option (#6, krux/postscribe#512)', () => {
     it('puts the nonce on the scripts and styles it creates', async() => {
       await write('<style id="n6s">#n6 { color: red; }</style>' +
