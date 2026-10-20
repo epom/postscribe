@@ -58,12 +58,13 @@ function setData(el, name, value = null) {
   }
 }
 
-// Epom fork: the script types a browser runs (HTML spec "JavaScript MIME type essence match", plus module).
+// Epom fork: the script types a browser runs: HTML's "JavaScript MIME type essence match" (the whole trimmed
+// value, case-insensitive; a value with parameters such as "; charset=utf-8" does not run), plus module.
 const JS_TYPE = /^(?:module|(?:application|text)\/(?:x-)?(?:ecmascript|javascript)|text\/javascript1\.[0-5]|text\/(?:jscript|livescript))$/i;
 
 function isJavaScript(tok) {
   const type = tok.attrs.type || tok.attrs.TYPE;
-  return !type || !type.trim() || JS_TYPE.test(type.split(';')[0].trim());
+  return !type || !type.trim() || JS_TYPE.test(type.trim());
 }
 
 // Epom fork: a copy of a tag token with one more attribute.
