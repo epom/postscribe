@@ -13,9 +13,15 @@ output where it belongs.
 ## This fork
 
 postscribe was written at [Krux](https://github.com/krux/postscribe). Its last release was 2.0.8 in November 2016,
-and the repository was archived in 2024, with its open bugs still open. [Epom](https://epom.com) runs postscribe
-in its ad server to write advertisers' creatives into publisher pages, so we keep it alive here: same API, same
-MIT license, drop-in for 2.0.8, plus fixes for the bugs reported upstream that hit real creatives.
+and the repository was archived in 2024, with its open bugs still open and a build that no longer runs.
+[Epom](https://epom.com) runs postscribe in its ad server to write advertisers' creatives into publisher pages, so
+we brought it back to life here as **3.0**: same API, same MIT license, a drop-in for 2.0.8, with
+
+- the bugs reported upstream that hit real creatives fixed,
+- the HTML tokenizer ([prescribe](https://github.com/krux/prescribe), archived too) maintained in the same repository,
+- a current toolchain (rollup, ESLint, Web Test Runner on Playwright) in place of gulp, webpack 1, Babel 6, Karma and
+  PhantomJS,
+- the original test suite running again, all of it, in headless Chromium on every push, plus a test for every fix.
 
 Fixed so far (details in [CHANGELOG.md](CHANGELOG.md)):
 
@@ -27,6 +33,7 @@ Fixed so far (details in [CHANGELOG.md](CHANGELOG.md)):
 | A `>` inside a quoted attribute value ended the tag ([#4](https://github.com/epom/postscribe/issues/4)) | [krux#509](https://github.com/krux/postscribe/issues/509) |
 | `<!DOCTYPE>` or `<?xml?>` stopped the stream ([#5](https://github.com/epom/postscribe/issues/5)) | [krux#358](https://github.com/krux/postscribe/issues/358) |
 | No way to pass a CSP nonce; added the `nonce` option ([#6](https://github.com/epom/postscribe/issues/6)) | [krux#512](https://github.com/krux/postscribe/pull/512) |
+| A stray `</embed>`, `</img>` or `</br>` closed the enclosing element ([#7](https://github.com/epom/postscribe/issues/7)) | upstream's own skipped test |
 
 Found another one? [Open an issue](https://github.com/epom/postscribe/issues/new) with the smallest markup that
 reproduces it.
@@ -36,17 +43,17 @@ reproduces it.
 ### Browser
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v2.0.8-epom.2/dist/postscribe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v3.0.0/dist/postscribe.min.js"></script>
 ```
 
 This defines a global `postscribe`. Or take [`dist/postscribe.js`](dist/postscribe.js) /
 [`dist/postscribe.min.js`](dist/postscribe.min.js) into your own bundle. Both are UMD builds with the HTML tokenizer
-([prescribe](https://github.com/krux/prescribe)) included and no dependencies.
+included and no dependencies.
 
 ### npm
 
 ```console
-npm install github:epom/postscribe#v2.0.8-epom.2
+npm install github:epom/postscribe#v3.0.0
 ```
 
 ```javascript
@@ -101,34 +108,71 @@ leave the container empty and inject the tag once the page is ready:
 </script>
 ```
 
+### In React, Vue or Angular
+
+Give postscribe an element the framework renders once and never touches again, and call it after that element is in
+the DOM. It needs a real DOM, so not during server-side rendering.
+
+```jsx
+// React
+function Ad({tag}) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const stream = postscribe(ref.current, tag);
+    return () => stream.cancel();
+  }, [tag]);
+  return <div ref={ref} />;
+}
+```
+
+```vue
+<!-- Vue 3 -->
+<script setup>
+import {onMounted, onBeforeUnmount, ref} from 'vue';
+import postscribe from 'postscribe';
+const props = defineProps(['tag']);
+const box = ref(null);
+let stream;
+onMounted(() => { stream = postscribe(box.value, props.tag); });
+onBeforeUnmount(() => stream && stream.cancel());
+</script>
+<template><div ref="box"></div></template>
+```
+
+```ts
+// Angular
+@Component({selector: 'app-ad', template: '<div #box></div>'})
+export class AdComponent implements AfterViewInit {
+  @Input() tag = '';
+  @ViewChild('box') box!: ElementRef<HTMLElement>;
+  ngAfterViewInit() { postscribe(this.box.nativeElement, this.tag); }
+}
+```
+
 ## FAQ
 
-**Does it work with jQuery, React, Vue and the like?** Yes. It has no dependencies and does not conflict with them.
-For React or Vue, call it from an effect or `mounted` on an element the framework will not re-render. It needs a
-real DOM, so not during server-side rendering.
+**Does it work with frameworks?** Yes: it has no dependencies and does not conflict with them. See
+[In React, Vue or Angular](#in-react-vue-or-angular) above.
 
 **Can two tag writers run on one page?** No. postscribe overrides `document.write` while it works; another library
 doing the same at the same time will interfere.
 
-**Which browsers?** Current Chrome, Edge, Firefox and Safari, desktop and mobile. The build is ES5 and avoids newer
-APIs, but only current browsers are tested.
+**Which browsers?** Current Chrome, Edge, Firefox and Safari, desktop and mobile. The build is ES2015+; transpile it
+yourself if you still need ES5.
 
 ## Development
 
-The original gulp / karma / PhantomJS toolchain no longer installs on current Node. What ships is
-[`dist/postscribe.js`](dist/postscribe.js): the npm 2.0.8 build with the fixes applied, each marked `Epom fork:`, and
-mirrored in [`src/`](src). [`test/epom/postscribe-check.cjs`](test/epom/postscribe-check.cjs) writes sample creatives
-through a build in headless Chromium and checks the resulting DOM:
-
 ```console
-npm install --no-save --no-package-lock --ignore-scripts playwright esbuild prescribe@1.1.3
+npm ci
 npx playwright install chromium
-node test/epom/postscribe-check.cjs                        # dist/postscribe.js
-node test/epom/postscribe-check.cjs dist/postscribe.min.js
+npm run lint
+npm run build    # rollup: dist/postscribe.js and dist/postscribe.min.js from src/
+npm test         # the original suite, the tokenizer's suite and test/epom/*.spec.js, in headless Chromium
+npm run verify   # all of the above, and fails if the committed dist/ is not the build of src/
 ```
 
-CI runs it for `dist/postscribe.js`, `dist/postscribe.min.js` and the `src` bundle on every push. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+`dist/` is committed so the library can be used straight from the repository. Every fix comes with a spec under
+[`test/epom/`](test/epom), and CI runs `npm run verify` on every push. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Credits
 

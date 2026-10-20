@@ -2,14 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2.0.8-epom.2 - 2026-10-21
-First release of the Epom fork. Upstream stopped at 2.0.8 (November 2016) and was archived in 2024; these are fixes
-for issues reported there and never released.
+## 3.0.0 - 2026-10-21
+First release of the Epom fork. Upstream stopped at 2.0.8 (November 2016) and was archived in 2024. The API is
+unchanged and 3.0 is a drop-in for 2.0.8; the major version is for the behaviour fixes below and the new build.
 
 ### Fixed
-- A `<script>` whose type the browser does not run (`text/plain`, as consent managers park tags) no longer stops the
-  stream when it has a `src`. [#2](https://github.com/epom/postscribe/issues/2), upstream
-  [krux/postscribe#513](https://github.com/krux/postscribe/issues/513)
+- A `<script>` whose type the browser does not run (`text/plain`, as consent managers park tags; a type with MIME
+  parameters) no longer stops the stream when it has a `src`. [#2](https://github.com/epom/postscribe/issues/2),
+  upstream [krux/postscribe#513](https://github.com/krux/postscribe/issues/513)
 - Attribute values of the scripts and styles postscribe builds are entity-decoded, so a script written through
   `document.write(el.outerHTML)` keeps the `&` in its URL. [#3](https://github.com/epom/postscribe/issues/3), upstream
   [krux/postscribe#346](https://github.com/krux/postscribe/issues/346)
@@ -17,11 +17,25 @@ for issues reported there and never released.
   [#4](https://github.com/epom/postscribe/issues/4), upstream [krux/postscribe#509](https://github.com/krux/postscribe/issues/509)
 - `<!DOCTYPE>` and `<?xml?>` no longer stop the stream, so a creative that is a whole HTML document renders.
   [#5](https://github.com/epom/postscribe/issues/5), upstream [krux/postscribe#358](https://github.com/krux/postscribe/issues/358)
+- A stray end tag of an empty element (`</embed>`, `</img>`) no longer closes the enclosing element; `</br>` reads as
+  `<br>`, as in the browser. [#7](https://github.com/epom/postscribe/issues/7), upstream's own skipped `selfclosing` spec
+- `cancel()` on a running stream no longer throws `stream.abort is not a function` and no longer leaves
+  `document.write` overridden with every later stream stuck: the stream stops, none of its callbacks fire, and the
+  next one runs. [#8](https://github.com/epom/postscribe/issues/8), upstream
+  [krux/postscribe#478](https://github.com/krux/postscribe/issues/478)
 
 ### Added
 - `nonce` option: the scripts and styles postscribe creates carry the page's CSP nonce.
   [#6](https://github.com/epom/postscribe/issues/6), upstream [krux/postscribe#512](https://github.com/krux/postscribe/pull/512)
-- `dist/postscribe.js` and `dist/postscribe.min.js` are committed, and CI checks them in headless Chromium.
+
+### Changed
+- The HTML tokenizer, [prescribe](https://github.com/krux/prescribe) (archived too), lives in `src/prescribe/` and is
+  maintained here, with its own test suite.
+- Built with rollup from native ES modules; `dist/` is ES2015+ (2.0.8 was ES3/ES5). The minified build is about 15 KB,
+  down from 18 KB.
+- gulp, webpack 1, Babel 6, Karma, PhantomJS, JSCS and semantic-release are replaced by rollup, ESLint 10 and Web Test
+  Runner on Playwright Chromium. The original suite runs again, every case of it: three specs skipped upstream for old
+  IE now pass, and the fourth found #7.
 
 ## 2.0.8-epom.1 - 2026-10-20
 ### Fixed
