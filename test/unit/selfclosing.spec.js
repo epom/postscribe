@@ -1,5 +1,5 @@
-import * as wc from '../helpers/write-comparor';
-import {Html} from '../helpers/write-thunks';
+import * as wc from '../helpers/write-comparor.js';
+import {Html} from '../helpers/write-thunks.js';
 
 describe('selfclosing', () => {
   xit('Handles closed self-closing tags that\'re closed.', done => {

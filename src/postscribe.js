@@ -1,5 +1,5 @@
-import WriteStream from './write-stream';
-import * as utils from './utils';
+import WriteStream from './write-stream.js';
+import * as utils from './utils.js';
 
 /**
  * A function that intentionally does nothing.

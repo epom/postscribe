@@ -1,4 +1,4 @@
-import * as wc from '../helpers/write-comparor';
+import * as wc from '../helpers/write-comparor.js';
 
 describe('style', () => {
   it('simple style', done => {

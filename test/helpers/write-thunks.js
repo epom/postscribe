@@ -1,5 +1,3 @@
-const $ = require('jquery');
-
 export class Html {
   constructor(...value) {
     this.value = value;

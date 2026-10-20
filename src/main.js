@@ -1,4 +1,3 @@
-import postscribe from './postscribe';
+import postscribe from './postscribe.js';
 
-module.exports = postscribe;
-
+export default postscribe;

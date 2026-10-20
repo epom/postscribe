@@ -1,4 +1,4 @@
-import postscribe from '../../src/postscribe';
+import postscribe from '../../src/postscribe.js';
 
 // Skipping these on IE for now to get back to wherte we were.
 if (navigator.userAgent.indexOf('MSIE') === -1) {
@@ -12,14 +12,16 @@ if (navigator.userAgent.indexOf('MSIE') === -1) {
         const div = document.createElement('div');
         document.body.appendChild(div);
 
+        // The stream goes on after an error, so done follows it: finish once, there, and require the report.
+        let reported = false;
         postscribe(div, html, {
           error(err) {
-            window.onerror = oldOnError;
             expect(err).to.be.ok();
-            finish();
+            reported = true;
           },
           done() {
             window.onerror = oldOnError;
+            expect(reported).to.be(true);
             finish();
           }
         });

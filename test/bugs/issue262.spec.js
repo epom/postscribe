@@ -1,4 +1,4 @@
-import postscribe from '../../src/postscribe';
+import postscribe from '../../src/postscribe.js';
 
 describe('bugs', () => {
   function itCallsEvent(name, src, callCount = 1) {

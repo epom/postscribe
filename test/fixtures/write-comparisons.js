@@ -1,4 +1,4 @@
-import {Html, Js, Uri} from '../helpers/write-thunks';
+import {Html, Js, Uri} from '../helpers/write-thunks.js';
 
 
 /**

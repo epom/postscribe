@@ -1,4 +1,4 @@
-import postscribe from '../../src/postscribe';
+import postscribe from '../../src/postscribe.js';
 
 describe('vbscript', () => {
   if (window.supportsVbscript) {

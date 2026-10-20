@@ -1,6 +1,5 @@
-const $ = require('jquery');
-import descriptions from '../fixtures/write-comparisons';
-import * as wc from '../helpers/write-comparor';
+import descriptions from '../fixtures/write-comparisons.js';
+import * as wc from '../helpers/write-comparor.js';
 
 describe('write', () => {
   $.map(descriptions, (specs, desc) => {

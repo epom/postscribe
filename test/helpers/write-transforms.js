@@ -1,5 +1,3 @@
-const $ = require('jquery');
-
 /**
  * Functions to pass the results of document.write through before comparing w/ postscribe.
  *

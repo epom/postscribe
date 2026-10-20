@@ -1,5 +1,5 @@
-import HtmlParser from 'prescribe';
-import * as utils from './utils';
+import HtmlParser from './prescribe/HtmlParser.js';
+import * as utils from './utils.js';
 
 /**
  * Turn on to debug how each chunk affected the DOM.
@@ -575,6 +575,7 @@ export default class WriteStream {
    * @private
    */
   _onScriptDone(tok) {
+
     // Pop script and check nesting.
     if (tok !== this.scriptStack[0]) {
       this.options.error({msg: 'Bad script nesting or script finished twice'});

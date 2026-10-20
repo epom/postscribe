@@ -1,4 +1,4 @@
-import postscribe from '../../src/postscribe';
+import postscribe from '../../src/postscribe.js';
 
 describe('tokenprocessing', () => {
   function testBeforeWriteTokenCalled(name, html, type, expectedAmount) {

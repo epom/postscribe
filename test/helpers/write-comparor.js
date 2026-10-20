@@ -1,9 +1,7 @@
-import postscribe from '../../src/postscribe';
-import iframe from './iframe';
-import {Html, Js, Uri} from './write-thunks';
-import * as transforms from './write-transforms';
-
-const $ = require('jquery');
+import postscribe from '../../src/postscribe.js';
+import iframe from './iframe.js';
+import {Html, Js, Uri} from './write-thunks.js';
+import * as transforms from './write-transforms.js';
 
 export function compare(def) {
   if (!$.isArray(def)) {
