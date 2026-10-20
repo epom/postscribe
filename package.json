@@ -18,8 +18,8 @@
     "after load"
   ],
   "author": {
-    "name": "Derek Brans",
-    "web": "http://github.com/dbrans"
+    "name": "Epom",
+    "url": "https://epom.com"
   },
   "maintainers": [
     {
@@ -53,7 +53,7 @@
     "test:check": "node test/epom/postscribe-check.cjs dist/postscribe.js && node test/epom/postscribe-check.cjs dist/postscribe.min.js",
     "verify": "npm run lint && npm run build && git diff --exit-code -- dist && npm test && npm run test:check"
   },
-  "version": "3.0.0",
+  "version": "3.0.1",
   "module": "src/main.js",
   "unpkg": "dist/postscribe.min.js",
   "jsdelivr": "dist/postscribe.min.js",
@@ -66,5 +66,14 @@
   ],
   "engines": {
     "node": ">=20"
-  }
+  },
+  "contributors": [
+    {
+      "name": "Derek Brans",
+      "url": "https://github.com/dbrans"
+    },
+    {
+      "name": "Krux Digital, Inc."
+    }
+  ]
 }

@@ -43,7 +43,7 @@ reproduces it.
 ### Browser
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v3.0.0/dist/postscribe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v3.0.1/dist/postscribe.min.js"></script>
 ```
 
 This defines a global `postscribe`. Or take [`dist/postscribe.js`](dist/postscribe.js) /
@@ -53,7 +53,7 @@ included and no dependencies.
 ### npm
 
 ```console
-npm install github:epom/postscribe#v3.0.0
+npm install github:epom/postscribe#v3.0.1
 ```
 
 ```javascript

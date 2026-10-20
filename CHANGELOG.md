@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 3.0.1 - 2026-10-21
+### Changed
+- The build banner and `package.json` name Epom as the author and maintainer of 3.x; the original authors and Krux's
+  copyright stay, as the MIT license requires. `LICENSE` adds Epom's copyright, and `src/prescribe/LICENSE` carries
+  prescribe's. No code change.
+
 ## 3.0.0 - 2026-10-21
 First release of the Epom fork. Upstream stopped at 2.0.8 (November 2016) and was archived in 2024. The API is
 unchanged and 3.0 is a drop-in for 2.0.8; the major version is for the behaviour fixes below and the new build.

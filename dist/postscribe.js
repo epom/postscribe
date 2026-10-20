@@ -1,11 +1,11 @@
 /**
  * @file postscribe
  * @description Asynchronously write javascript, even with document.write.
- * @version v3.0.0
+ * @version v3.0.1
  * @see {@link https://github.com/epom/postscribe}
  * @license MIT
- * @author Derek Brans
- * @copyright 2016 Krux Digital, Inc; Epom
+ * @author Epom (https://epom.com), maintained by Anton Ruin
+ * @copyright 2026 Epom; based on postscribe (c) 2016 Krux Digital, Inc. (Derek Brans and contributors)
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :

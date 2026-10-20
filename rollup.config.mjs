@@ -9,8 +9,8 @@ const banner = `/**
  * @version v${pkg.version}
  * @see {@link https://github.com/epom/postscribe}
  * @license MIT
- * @author Derek Brans
- * @copyright 2016 Krux Digital, Inc; Epom
+ * @author Epom (https://epom.com), maintained by Anton Ruin
+ * @copyright 2026 Epom; based on postscribe (c) 2016 Krux Digital, Inc. (Derek Brans and contributors)
  */`;
 
 const output = {format: 'umd', name: 'postscribe', exports: 'default', banner};
