@@ -416,7 +416,7 @@ export default class WriteStream {
       this.writeQueue.unshift(remainder);
     }
 
-    tok.src = tok.attrs.src || tok.attrs.SRC;
+    tok.src = this._decodeEntities(tok.attrs.src || tok.attrs.SRC);
     // Epom fork: a script the browser will not run (type="text/plain"...) is never loaded either, so there is
     // no load event to wait for: write it like an inline one.
     tok.inert = !isJavaScript(tok);
@@ -502,7 +502,7 @@ export default class WriteStream {
 
     // Set attributes
     utils.eachKey(tok.attrs, (name, value) => {
-      el.setAttribute(name, value);
+      el.setAttribute(name, this._decodeEntities(value));
     });
 
     return el;
@@ -611,7 +611,7 @@ export default class WriteStream {
 
     // Set attributes
     utils.eachKey(tok.attrs, (name, value) => {
-      el.setAttribute(name, value);
+      el.setAttribute(name, this._decodeEntities(value));
     });
 
     // Set content
@@ -620,6 +620,24 @@ export default class WriteStream {
     }
 
     return el;
+  }
+
+  /**
+   * Epom fork: decode the HTML entities of an attribute value the way the parser would. Values reach setAttribute
+   * straight from the markup, where `&amp;` (as `outerHTML` writes it) must become `&`; a textarea decodes
+   * without running anything.
+   *
+   * @param {String} value The attribute value as written
+   * @returns {String}
+   * @private
+   */
+  _decodeEntities(value) {
+    if (!value || value.indexOf('&') === -1) {
+      return value;
+    }
+    const textarea = this.doc.createElement('textarea');
+    textarea.innerHTML = value;
+    return textarea.value;
   }
 
   /**
