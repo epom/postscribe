@@ -58,6 +58,15 @@ function setData(el, name, value = null) {
   }
 }
 
+// Epom fork: <template> start/end tag tokens.
+function isTemplateStart(tok) {
+  return tok.type === 'startTag' && !tok.unary && (/^template$/i).test(tok.tagName);
+}
+
+function isTemplateEnd(tok) {
+  return tok.type === 'endTag' && (/^template$/i).test(tok.tagName);
+}
+
 /**
  * Stream static html to an element, where "static html" denotes "html
  * without scripts".
@@ -108,6 +117,9 @@ export default class WriteStream {
     this.scriptStack = [];
     this.writeQueue = [];
 
+    // Epom fork: a <template> left unterminated by one write, completed by a later one.
+    this.pendingTemplate = null;
+
     setData(this.proxyRoot, 'proxyof', 0);
   }
 
@@ -126,6 +138,8 @@ export default class WriteStream {
       const arg = this.writeQueue.shift();
 
       if (utils.isFunction(arg)) {
+        // Epom fork: the stream ends with a function, so a template still open by now never gets closed.
+        this._flushPendingTemplate();
         this._callFunction(arg);
       } else {
         this._writeImpl(arg);
@@ -153,6 +167,10 @@ export default class WriteStream {
    * @private
    */
   _writeImpl(html) {
+    if (this.pendingTemplate) {
+      html = this.pendingTemplate.start.toString() + this.pendingTemplate.inner + html;
+      this.pendingTemplate = null;
+    }
     this.parser.append(html);
 
     let tok;
@@ -161,9 +179,21 @@ export default class WriteStream {
     const tokens = [];
 
     // stop if we see a script token
-    while ((tok = this.parser.readToken()) &&
-      !(script = utils.isScript(tok)) &&
-      !(style = utils.isStyle(tok))) {
+    while ((tok = this.parser.readToken())) {
+      // Epom fork: a template's content is inert, so take it whole instead of running the scripts in it.
+      if (isTemplateStart(tok)) {
+        const template = this._readTemplate(tok);
+        if (!template) {
+          break;
+        }
+        tokens.push(template);
+        continue;
+      }
+
+      if ((script = utils.isScript(tok)) || (style = utils.isStyle(tok))) {
+        break;
+      }
+
       tok = this.options.beforeWriteToken(tok);
 
       if (tok) {
@@ -181,6 +211,45 @@ export default class WriteStream {
 
     if (style) {
       this._handleStyleToken(tok);
+    }
+  }
+
+  /**
+   * Epom fork: read the rest of a template, nested ones included, into a single inert token. Returns null when
+   * the html ends inside it: what was read is kept and put in front of the next write.
+   *
+   * @param {Object} start The template start tag token
+   * @returns {Object|null}
+   * @private
+   */
+  _readTemplate(start) {
+    const inner = [];
+    let depth = 1;
+    let tok;
+
+    while ((tok = this.parser.readToken())) {
+      if (isTemplateStart(tok)) {
+        depth++;
+      } else if (isTemplateEnd(tok) && --depth === 0) {
+        return {type: 'template', start, inner: inner.join(''), end: tok.toString()};
+      }
+      inner.push(tok.toString());
+    }
+
+    this.pendingTemplate = {start, inner: inner.join('') + (this.parser.clear() || '')};
+    return null;
+  }
+
+  /**
+   * Epom fork: write a template still open when the stream ends, as the browser would: closed at the end.
+   *
+   * @private
+   */
+  _flushPendingTemplate() {
+    if (this.pendingTemplate) {
+      const {start, inner} = this.pendingTemplate;
+      this.pendingTemplate = null;
+      this._writeStaticTokens([{type: 'template', start, inner, end: ''}]);
     }
   }
 
@@ -238,6 +307,18 @@ export default class WriteStream {
     const len = tokens.length;
     for (let i = 0; i < len; i++) {
       const tok = tokens[i];
+
+      // Epom fork: only the template element itself is tracked; its content is parsed into template.content,
+      // out of reach of the walk, so it is written as is and leaves nothing in the proxy history.
+      if (tok.type === 'template') {
+        const id = nextId++;
+        const startRaw = tok.start.toString();
+        raw.push(startRaw + tok.inner + tok.end);
+        actual.push(startRaw.replace(/(\/?>)$/, ` ${BASEATTR}id=${id}>`) + tok.inner + tok.end);
+        proxy.push(`<template ${BASEATTR}proxyof=${id}></template>`);
+        continue;
+      }
+
       const tokenRaw = tok.toString();
 
       raw.push(tokenRaw);

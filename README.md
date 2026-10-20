@@ -1,3 +1,22 @@
+# Epom fork of postscribe
+
+Upstream [krux/postscribe](https://github.com/krux/postscribe) is archived. [Epom](https://epom.com) runs postscribe in its ad server
+to write third-party creatives into publisher pages, so we keep fixing it here. Everything stays MIT, like upstream.
+
+**Use it:** take [`dist/postscribe.js`](dist/postscribe.js), a drop-in replacement for the npm `postscribe@2.0.8` build (prescribe bundled).
+
+**Changes against 2.0.8** (marked `Epom fork:` in [`src/write-stream.js`](src/write-stream.js) and `dist/postscribe.js`):
+
+- `<template>` is written whole, as inert HTML. Upstream ran every `<script>` inside a template, which a browser never does,
+  left the template empty, and stalled the whole stream on an external `<script src>` inside one, waiting for a load event
+  that never comes. Nested templates, templates split across `document.write` calls and unterminated ones are handled too.
+
+**Check:** `node test/epom/postscribe-check.cjs` writes sample creatives through `dist/postscribe.js` in headless Chromium
+and asserts the DOM (needs `npm i --no-save playwright && npx playwright install chromium`). The original gulp/karma/PhantomJS
+toolchain below no longer runs on current Node.
+
+---
+
 # THIS REPOSITORY IS NO LONGER MAINTAINED AND WILL BE ARCHIVED SHORTLY.
 
 # Overview
