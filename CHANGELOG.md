@@ -2,6 +2,32 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 2.0.8-epom.2 - 2026-10-21
+First release of the Epom fork. Upstream stopped at 2.0.8 (November 2016) and was archived in 2024; these are fixes
+for issues reported there and never released.
+
+### Fixed
+- A `<script>` whose type the browser does not run (`text/plain`, as consent managers park tags) no longer stops the
+  stream when it has a `src`. [#2](https://github.com/epom/postscribe/issues/2), upstream
+  [krux/postscribe#513](https://github.com/krux/postscribe/issues/513)
+- Attribute values of the scripts and styles postscribe builds are entity-decoded, so a script written through
+  `document.write(el.outerHTML)` keeps the `&` in its URL. [#3](https://github.com/epom/postscribe/issues/3), upstream
+  [krux/postscribe#346](https://github.com/krux/postscribe/issues/346)
+- A `>` inside a quoted attribute value no longer ends the tag and corrupts the value.
+  [#4](https://github.com/epom/postscribe/issues/4), upstream [krux/postscribe#509](https://github.com/krux/postscribe/issues/509)
+- `<!DOCTYPE>` and `<?xml?>` no longer stop the stream, so a creative that is a whole HTML document renders.
+  [#5](https://github.com/epom/postscribe/issues/5), upstream [krux/postscribe#358](https://github.com/krux/postscribe/issues/358)
+
+### Added
+- `nonce` option: the scripts and styles postscribe creates carry the page's CSP nonce.
+  [#6](https://github.com/epom/postscribe/issues/6), upstream [krux/postscribe#512](https://github.com/krux/postscribe/pull/512)
+- `dist/postscribe.js` and `dist/postscribe.min.js` are committed, and CI checks them in headless Chromium.
+
+## 2.0.8-epom.1 - 2026-10-20
+### Fixed
+- `<template>` content is written as inert HTML. Upstream ran every script inside it, left the template empty, and
+  stalled the stream on an external script inside one. [#1](https://github.com/epom/postscribe/issues/1)
+
 ## 2.0.3 - 2016-04-22
 ### Fixed
 - Fixed #159 - Chrome producing Unexpected token ILLEGAL when iframe src contains escaped double quotes

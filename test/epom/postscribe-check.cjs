@@ -1,9 +1,9 @@
 /**
- * Regression check for the Epom postscribe fork (dist/postscribe.js): writes creatives
+ * Regression check for postscribe: writes creatives
  * through it in headless Chromium and asserts the resulting DOM. No server needed; example.com is stubbed.
  *
  * Usage (from the repo root; needs Playwright: npm i --no-save playwright && npx playwright install chromium):
- *   node test/epom/postscribe-check.cjs [path/to/postscribe.js]
+ *   node test/epom/postscribe-check.cjs [path/to/postscribe.js]   (default dist/postscribe.js)
  * Exits non-zero on any failure.
  */
 const fs = require('fs');
@@ -52,6 +52,36 @@ const CASES = [
         check: () => window.__str === '<template id="fake"><b>x</b></template>' && !document.getElementById('fake'),
     },
     {
+        name: 'a non-JavaScript <script type> is written but does not stop the stream (krux#513)',
+        html: '<script type="text/plain" id="plain" src="https://example.com/consent.js"></script><p id="after513">after</p>',
+        check: () => !!document.getElementById('after513') && document.getElementById('plain').type === 'text/plain',
+        noRequestTo: 'consent.js',
+    },
+    {
+        name: 'script attribute values are entity-decoded, so an outerHTML-written URL keeps its & (krux#346)',
+        html: '<script>var s = document.createElement("script"); s.src = "https://example.com/amp.js?foo=bar&a=1";'
+            + ' document.write(s.outerHTML);</script><div id="d346" data-json="{&quot;a&quot;:1}"></div>',
+        check: () => document.getElementById('d346').getAttribute('data-json') === '{"a":1}',
+        requestTo: 'amp.js?foo=bar&a=1',
+    },
+    {
+        name: 'a > inside a quoted attribute value does not end the tag (krux#509)',
+        html: '<img id="i509" src="data:image/png,x" onerror="if (10 > 8) { window.__gt = 1; }">',
+        check: () => window.__gt === 1 && document.getElementById('i509').getAttribute('onerror') === 'if (10 > 8) { window.__gt = 1; }',
+    },
+    {
+        name: 'a full HTML document as a creative still renders its body (krux#358)',
+        html: '<!DOCTYPE html><html><head><title>t</title></head><body><p id="p358">doc</p><script>window.__doc=1</script></body></html>',
+        check: () => !!document.getElementById('p358') && window.__doc === 1,
+    },
+    {
+        name: 'with the nonce option, scripts and styles it creates pass a nonce-based CSP (krux#512)',
+        html: '<style>#s512 { color: rgb(1, 2, 3); }</style><p id="s512">x</p><script>window.__csp = 1;</script>',
+        options: { nonce: 'n0nce' },
+        csp: "script-src 'nonce-n0nce'; style-src 'nonce-n0nce'",
+        check: () => window.__csp === 1 && getComputedStyle(document.getElementById('s512')).color === 'rgb(1, 2, 3)',
+    },
+    {
         name: 'ordinary creatives still run scripts and document.write in order',
         html: '<div id="reg"><span>a</span><script src="https://example.com/ext.js"></script>'
             + '<script>document.write(\'<p id="dw">dw</p>\')</script><b>after</b></div>',
@@ -72,15 +102,25 @@ const CASES = [
                 requests.push(route.request().url());
                 route.fulfill({ body: '' });
             });
-            await page.setContent('<html><body></body></html>');
-            await page.addScriptTag({ content: source });
-            const done = await page.evaluate(([id, html]) => new Promise((resolve) => {
+            if (c.csp) {
+                // a real CSP header, so the page's own scripts need the nonce too
+                await page.route('https://page.test/', (route) => route.fulfill({
+                    contentType: 'text/html',
+                    headers: { 'Content-Security-Policy': c.csp },
+                    body: `<html><body><script nonce="${c.options.nonce}">${source}</script></body></html>`,
+                }));
+                await page.goto('https://page.test/');
+            } else {
+                await page.setContent('<html><body></body></html>');
+                await page.addScriptTag({ content: source });
+            }
+            const done = await page.evaluate(([id, html, options]) => new Promise((resolve) => {
                 const el = document.createElement('div');
                 el.id = id;
                 document.body.appendChild(el);
-                postscribe(el, html, { done: () => resolve(true) });
+                postscribe(el, html, Object.assign({}, options, { done: () => resolve(true) }));
                 setTimeout(() => resolve(false), 3000);
-            }), ['c' + (i + 1), c.html]);
+            }), ['c' + (i + 1), c.html, c.options || {}]);
             const ok = done
                 && await page.evaluate(`(${c.check.toString()})()`)
                 && (!c.noRequestTo || !requests.some((u) => u.includes(c.noRequestTo)))

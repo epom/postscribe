@@ -1,16 +1,14 @@
 /**
  * @file postscribe
  * @description Asynchronously write javascript, even with document.write.
- * @version v2.0.8
- * @see {@link https://krux.github.io/postscribe}
+ * @version v2.0.8-epom.2
+ * @see {@link https://github.com/epom/postscribe}
  * @license MIT
  * @author Derek Brans
  * @copyright 2016 Krux Digital, Inc
  *
- * Epom fork of the npm v2.0.8 build: https://github.com/epom/postscribe (upstream krux/postscribe is archived).
- * Changes, all in WriteStream and marked "Epom fork:":
- *  - <template> is written whole as inert static html: scripts inside it are not run (and an external one no
- *    longer stalls the stream waiting for a load event that never comes), and its content keeps no data-ps-id.
+ * Epom fork of the npm v2.0.8 build; upstream krux/postscribe is archived. Changes are marked "Epom fork:",
+ * see https://github.com/epom/postscribe/blob/master/CHANGELOG.md.
  */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
@@ -179,7 +177,12 @@ return /******/ (function(modules) { // webpackBootstrap
 	  /**
 	   * Whether to let scripts w/ async attribute set fall out of the queue.
 	   */
-	  releaseAsync: false
+	  releaseAsync: false,
+	
+	  /**
+	   * Epom fork: the page's Content-Security-Policy nonce, put on every script and style postscribe creates.
+	   */
+	  nonce: null
 	};
 	
 	var nextId = 0;

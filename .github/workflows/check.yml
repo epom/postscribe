@@ -1,0 +1,27 @@
+name: check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The original gulp/karma/PhantomJS toolchain no longer installs; only what the checks need.
+      - run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.49.1 esbuild@0.24.2 prescribe@1.1.3
+      - run: npx playwright install --with-deps chromium
+      - name: dist/postscribe.js
+        run: node test/epom/postscribe-check.cjs dist/postscribe.js
+      - name: dist/postscribe.min.js
+        run: node test/epom/postscribe-check.cjs dist/postscribe.min.js
+      - name: src (bundled with esbuild)
+        run: |
+          npx esbuild src/postscribe.js --bundle --format=iife --global-name=__ps \
+            --footer:js='window.postscribe=__ps.default;' --outfile=build/src-bundle.js
+          node test/epom/postscribe-check.cjs build/src-bundle.js

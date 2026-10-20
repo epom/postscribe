@@ -1,12 +1,14 @@
 {
   "name": "postscribe",
-  "description": "Asynchronously write javascript, even with document.write.",
-  "homepage": "https://krux.github.io/postscribe",
-  "bugs": "https://github.com/krux/postscribe/issues",
+  "description": "Asynchronously write javascript, even with document.write. Maintained fork by Epom.",
+  "homepage": "https://github.com/epom/postscribe",
+  "bugs": {
+    "url": "https://github.com/epom/postscribe/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git://github.com/krux/postscribe.git"
+    "url": "https://github.com/epom/postscribe.git"
   },
   "keywords": [
     "document.write",
@@ -115,5 +117,6 @@
     "test:cross-browser": "gulp test:cross-browser",
     "test:debug": "gulp test:debug",
     "test:nocoverage": "gulp test:nocoverage"
-  }
+  },
+  "version": "2.0.8-epom.2"
 }

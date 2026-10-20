@@ -1,10 +1,8 @@
-.codeclimate.yml
 .editorconfig
+.github/
 .eslint*
 .idea/**
 .jscsrc
-.travis.yml
-CLA.md
 CONTRIBUTING.md
 gulpfile.babel.js
 src/**

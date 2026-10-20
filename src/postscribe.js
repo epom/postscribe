@@ -72,7 +72,12 @@ const OPTIONS = {
   /**
    * Whether to let scripts w/ async attribute set fall out of the queue.
    */
-  releaseAsync: false
+  releaseAsync: false,
+
+  /**
+   * Epom fork: the page's Content-Security-Policy nonce, put on every script and style postscribe creates.
+   */
+  nonce: null
 };
 
 let nextId = 0;
