@@ -11,7 +11,6 @@
 node_modules/
 npm-*.log
 
-# Generated files
-dist/
+# Generated files (dist/ is committed: this fork has no working build, see README)
 build/
 
