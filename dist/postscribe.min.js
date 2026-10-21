@@ -1,7 +1,7 @@
 /**
  * @file postscribe
  * @description Asynchronously write javascript, even with document.write.
- * @version v3.1.0
+ * @version v3.1.1
  * @see {@link https://github.com/epom/postscribe}
  * @license MIT
  * @author Epom (https://epom.com), maintained by Anton Ruin

@@ -85,19 +85,19 @@ wrong. The full list is in [CHANGELOG.md](CHANGELOG.md).
 From a CDN, which defines a global `postscribe`:
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/epom/postscribe@v3.1.0/dist/postscribe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@epom-rnd/postscribe@3/dist/postscribe.min.js"></script>
 ```
 
-From npm, straight from this repository:
+From npm:
 
 ```console
-npm install github:epom/postscribe#v3.1.0
+npm install @epom-rnd/postscribe
 ```
 
 ```javascript
-import postscribe from 'postscribe';               // ES modules (dist/postscribe.mjs)
-const postscribe = require('postscribe');          // CommonJS
-define(['postscribe'], function (postscribe) {});  // AMD
+import postscribe from '@epom-rnd/postscribe';               // ES modules (dist/postscribe.mjs)
+const postscribe = require('@epom-rnd/postscribe');          // CommonJS
+define(['@epom-rnd/postscribe'], function (postscribe) {});  // AMD
 ```
 
 TypeScript types come with the package. Or copy [`dist/postscribe.js`](dist/postscribe.js) or
@@ -175,7 +175,7 @@ function Ad({tag}) {
 <!-- Vue 3 -->
 <script setup>
 import {onMounted, onBeforeUnmount, ref} from 'vue';
-import postscribe from 'postscribe';
+import postscribe from '@epom-rnd/postscribe';
 const props = defineProps(['tag']);
 const box = ref(null);
 let stream;

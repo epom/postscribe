@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 3.1.1 - 2026-10-21
+### Changed
+- Published on npm as `@epom-rnd/postscribe`; the `postscribe` name there still holds the unmaintained 2.0.8. No code
+  changes.
+
 ## 3.1.0 - 2026-10-21
 ### Fixed
 Found by differential testing: the same markup written through the browser's own `document.write` and through

@@ -1,5 +1,5 @@
 {
-  "name": "postscribe",
+  "name": "@epom-rnd/postscribe",
   "description": "Asynchronously write javascript, even with document.write. Maintained fork by Epom.",
   "homepage": "https://github.com/epom/postscribe",
   "bugs": {
@@ -55,10 +55,13 @@
     "verify": "npm run lint && npm run build && git diff --exit-code -- dist && npm test && npm run test:check",
     "test:differential": "DIFFERENTIAL=1 web-test-runner"
   },
-  "version": "3.1.0",
+  "version": "3.1.1",
   "module": "src/main.js",
   "unpkg": "dist/postscribe.min.js",
   "jsdelivr": "dist/postscribe.min.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist/",
     "src/",
