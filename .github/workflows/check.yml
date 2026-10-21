@@ -12,8 +12,8 @@ jobs:
       # npm test runs the suites in every engine listed here
       BROWSERS: chromium,firefox,webkit
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
