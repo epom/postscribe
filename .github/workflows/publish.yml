@@ -1,0 +1,34 @@
+name: publish
+
+# Publishes to npm as @epom-rnd/postscribe when a v* tag is pushed. No npm token: npm trusts this workflow
+# (trusted publishing, set up in the package's settings on npmjs.com) and attaches provenance on its own.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      BROWSERS: chromium,firefox,webkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      # trusted publishing needs npm 11.5.1 or later; node 22 ships with 10
+      - run: npm install -g npm@11
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run verify
+      - name: Tag matches package.json
+        if: github.ref_type == 'tag'
+        run: test "${GITHUB_REF_NAME}" = "v$(node -p 'require("./package.json").version')"
+      - run: npm publish

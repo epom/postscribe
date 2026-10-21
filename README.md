@@ -229,7 +229,8 @@ npm run test:differential   # postscribe against the browser's own document.writ
 npm run verify   # lint and types, build, fail if the committed dist/ is stale, tests; CI runs this on every push
 ```
 
-`dist/` is committed so the library can be used straight from the repository.
+`dist/` is committed so the library can be used straight from the repository. A release is a version bump in
+`package.json` and `CHANGELOG.md` plus a `v*` tag: pushing the tag publishes to npm from GitHub Actions, with provenance.
 
 ## License
 
