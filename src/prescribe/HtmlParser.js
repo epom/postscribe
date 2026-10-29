@@ -28,8 +28,7 @@ export default class HtmlParser {
    * Constructor.
    *
    * @param {string} stream The initial parse stream contents.
-   * @param {Object} options The options
-   * @param {boolean} options.autoFix Set to true to automatically fix errors
+   * @param {{autoFix: (boolean|undefined)}=} options The options: autoFix, set to true to automatically fix errors
    */
   constructor(stream = '', options = {}) {
     this.stream = stream;

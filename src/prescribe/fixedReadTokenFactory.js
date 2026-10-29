@@ -94,9 +94,8 @@ function newStack() {
  * Return a readToken implementation that fixes input.
  *
  * @param {HtmlParser} parser The parser
- * @param {Object} options Options for fixing
- * @param {boolean} options.tagSoupFix True to fix tag soup scenarios
- * @param {boolean} options.selfCloseFix True to fix self-closing tags
+ * @param {{tagSoupFix: (boolean|undefined), selfCloseFix: (boolean|undefined)}} options Options for fixing:
+ *   tagSoupFix, true to fix tag soup scenarios; selfCloseFix, true to fix self-closing tags
  * @param {Function} readTokenImpl The underlying readToken implementation
  * @returns {Function}
  */

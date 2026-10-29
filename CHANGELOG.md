@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## Unreleased
+### Fixed
+- Google Closure Compiler no longer warns `JSC_INVALID_PARAM` on three JSDoc tags (`options.tagSoupFix`,
+  `options.selfCloseFix`, `options.autoFix`); the options are documented as record types. Comments only, no code
+  changes.
+
 ## 3.1.1 - 2026-10-21
 ### Changed
 - Published on npm as `@epom-rnd/postscribe`; the `postscribe` name there still holds the unmaintained 2.0.8. No code
