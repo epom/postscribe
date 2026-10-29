@@ -17,7 +17,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # npm run verify compiles dist/postscribe.js with Closure Compiler as the Epom ad server does, on its JDK
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
-      # lint and typings, build, fail if the committed dist/ is not the build of src/, the suites, the end-to-end check
+      # lint and typings, build, fail if the committed dist/ is not the build of src/, the suites, the end-to-end check,
+      # no Closure Compiler warnings
       - run: npm run verify
