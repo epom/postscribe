@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## Unreleased
+## 3.1.2 - 2026-10-29
 ### Fixed
 - Google Closure Compiler no longer warns `JSC_INVALID_PARAM` on three JSDoc tags (`options.tagSoupFix`,
   `options.selfCloseFix`, `options.autoFix`); the options are documented as record types. Comments only, no code
