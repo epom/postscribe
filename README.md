@@ -226,6 +226,7 @@ npx playwright install chromium
 npm run build    # rollup: dist/postscribe.js and dist/postscribe.min.js from src/
 npm test         # the original suites and ours (BROWSERS=chromium,firefox,webkit for all three)
 npm run test:differential   # postscribe against the browser's own document.write over the whole corpus
+npm run test:closure        # Closure Compiler over dist/postscribe.js as the Epom ad server runs it (needs a JDK)
 npm run verify   # lint and types, build, fail if the committed dist/ is stale, tests; CI runs this on every push
 ```
 

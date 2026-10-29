@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
   `options.selfCloseFix`, `options.autoFix`); the options are documented as record types. Comments only, no code
   changes.
 
+### Added
+- `npm run test:closure`, part of `npm run verify`: compiles `dist/postscribe.js` with Closure Compiler as the Epom
+  ad server does and fails on any warning or error.
+
 ## 3.1.1 - 2026-10-21
 ### Changed
 - Published on npm as `@epom-rnd/postscribe`; the `postscribe` name there still holds the unmaintained 2.0.8. No code

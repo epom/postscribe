@@ -26,6 +26,11 @@ jobs:
           registry-url: https://registry.npmjs.org
       # trusted publishing needs npm 11.5.1 or later; node 22 ships with 10
       - run: npm install -g npm@11
+      # npm run verify compiles dist/postscribe.js with Closure Compiler as the Epom ad server does, on its JDK
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run verify
