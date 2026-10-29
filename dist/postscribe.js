@@ -493,9 +493,8 @@
    * Return a readToken implementation that fixes input.
    *
    * @param {HtmlParser} parser The parser
-   * @param {Object} options Options for fixing
-   * @param {boolean} options.tagSoupFix True to fix tag soup scenarios
-   * @param {boolean} options.selfCloseFix True to fix self-closing tags
+   * @param {{tagSoupFix: (boolean|undefined), selfCloseFix: (boolean|undefined)}} options Options for fixing:
+   *   tagSoupFix, true to fix tag soup scenarios; selfCloseFix, true to fix self-closing tags
    * @param {Function} readTokenImpl The underlying readToken implementation
    * @returns {Function}
    */
@@ -609,8 +608,7 @@
      * Constructor.
      *
      * @param {string} stream The initial parse stream contents.
-     * @param {Object} options The options
-     * @param {boolean} options.autoFix Set to true to automatically fix errors
+     * @param {{autoFix: (boolean|undefined)}=} options The options: autoFix, set to true to automatically fix errors
      */
     constructor(stream = '', options = {}) {
       this.stream = stream;
